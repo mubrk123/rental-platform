@@ -1,0 +1,23 @@
+# Node modules
+node_modules/
+**/node_modules/
+
+# Env files
+.env
+.env.*
+!env.example
+
+# Build outputs
+frontend/dist/
+backend/uploads/
+
+# Logs
+logs/
+*.log
+
+# System
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
