@@ -1,0 +1,89 @@
+.
+├── eslint.config.js
+├── index.html
+├── package-lock.json
+├── package.json
+├── postcss.config.js
+├── project-structure.
+├── public
+│   └── vite.svg
+├── README.md
+├── src
+│   ├── App.css
+│   ├── App.jsx
+│   ├── assets
+│   │   ├── background.jpg
+│   │   ├── Bike1.png
+│   │   ├── Bike2.png
+│   │   ├── Bike3.png
+│   │   ├── Hero.jpg
+│   │   ├── hero1.jpg
+│   │   ├── Hero2.png
+│   │   ├── Hero3.png
+│   │   ├── Hero4.png
+│   │   ├── HeroImg.png
+│   │   ├── HeroImg2.png
+│   │   ├── HeroImg3.png
+│   │   ├── HeroImg4.png
+│   │   ├── logo.jpg
+│   │   ├── logo2.png
+│   │   ├── logo3.png
+│   │   ├── react.svg
+│   │   └── VehicleBackground.png
+│   ├── components
+│   │   ├── admin
+│   │   │   ├── AdminDashboardCard.jsx
+│   │   │   └── AdminSidebar.jsx
+│   │   ├── shared
+│   │   │   ├── Footer.jsx
+│   │   │   ├── Navbar.jsx
+│   │   │   └── ProtectedRoute.jsx
+│   │   └── user
+│   │       ├── UserDashboardCard.jsx
+│   │       └── UserSidebar.jsx
+│   ├── context
+│   │   └── AuthContext.jsx
+│   ├── hooks
+│   │   └── useAuth.js
+│   ├── index.css
+│   ├── layouts
+│   │   ├── AdminLayout.jsx
+│   │   └── UserLayout.jsx
+│   ├── lib
+│   │   ├── api.js
+│   │   └── loadRazorpay.js
+│   ├── main.jsx
+│   ├── pages
+│   │   ├── admin
+│   │   │   ├── AdminDashboard.jsx
+│   │   │   ├── AdminLogin.jsx
+│   │   │   ├── BookingsList.jsx
+│   │   │   ├── DashboardHome.jsx
+│   │   │   ├── Reports.jsx
+│   │   │   ├── SaleBikesList.jsx
+│   │   │   ├── Settings.jsx
+│   │   │   ├── UploadedVehicles.jsx
+│   │   │   ├── UploadSaleBike.jsx
+│   │   │   ├── UploadVehicle.jsx
+│   │   │   └── Users.jsx
+│   │   ├── auth
+│   │   │   ├── Login.jsx
+│   │   │   └── Register.jsx
+│   │   ├── BookingPage.jsx
+│   │   ├── BookingSuccess.jsx
+│   │   ├── PaymentPreview.jsx
+│   │   ├── SaleBikes.jsx
+│   │   ├── user
+│   │   │   ├── Bookings.jsx
+│   │   │   ├── Dashboard.jsx
+│   │   │   └── Profile.jsx
+│   │   └── Vehicles.jsx
+│   └── services
+│       ├── adminApi.js
+│       ├── api.js
+│       ├── authApi.js
+│       └── userApi.js
+├── tailwind.config.js
+└── vite.config.js
+
+17 directories, 70 files

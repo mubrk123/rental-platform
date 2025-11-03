@@ -1,0 +1,145 @@
+.
+├── backend
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── README.md
+│   ├── scripts
+│   │   └── fixImagePaths.js
+│   ├── src
+│   │   ├── app.js
+│   │   ├── config
+│   │   │   ├── db.js
+│   │   │   └── keys.js
+│   │   ├── controllers
+│   │   │   ├── bookingController.js
+│   │   │   └── vehicleController.js
+│   │   ├── middleware
+│   │   │   ├── adminAuth.js
+│   │   │   ├── adminMiddleware.js
+│   │   │   ├── authMiddleware.js
+│   │   │   └── errorHandler.js
+│   │   ├── models
+│   │   │   ├── Booking.js
+│   │   │   ├── SaleBike.js
+│   │   │   ├── User.js
+│   │   │   └── Vehicle.js
+│   │   ├── routes
+│   │   │   ├── adminRoutes.js
+│   │   │   ├── authRoutes.js
+│   │   │   ├── bookingRoutes.js
+│   │   │   ├── otpRoutes.js
+│   │   │   ├── paymentRoutes.js
+│   │   │   ├── pdfRoutes.js
+│   │   │   ├── saleBikeRoutes.js
+│   │   │   ├── uploadRoutes.js
+│   │   │   ├── userRoutes.js
+│   │   │   └── vehicleRoutes.js
+│   │   ├── server.js
+│   │   └── utils
+│   │       ├── generateBookingId.js
+│   │       ├── helpers.js
+│   │       ├── notifyUser.js
+│   │       ├── sendEmail.js
+│   │       └── upload.js
+│   └── uploads
+│       ├── documents
+│       │   ├── 1761998315235-102465400.pdf
+│       │   └── 1761998315237-824373859.jpg
+│       ├── logo.jpg
+│       ├── pdfs
+│       │   └── 6905f5eb11e75017428e160b_merged.pdf
+│       ├── pickupPhotos
+│       │   ├── 1761835179212.jpg
+│       │   ├── 1761845042781.png
+│       │   ├── 1761906159212.jpg
+│       │   ├── 1761998355381.JPG
+│       │   ├── 1761998361709.JPG
+│       │   ├── 1761998375365.JPG
+│       │   ├── 1761998400640.jpg
+│       │   ├── 1761998713485.JPG
+│       │   └── 1761998852774.JPG
+│       ├── sale-bikes
+│       │   ├── 1761582146579-712344340.jpeg
+│       │   ├── 1761582146585-227487639.jpeg
+│       │   ├── 1761582146589-419371832.jpeg
+│       │   ├── 1761587467097-702426184.jpeg
+│       │   ├── 1761587467101-18488932.jpeg
+│       │   └── 1761587467103-691612604.jpeg
+│       └── vehicles
+│           ├── 1761499957915-classic-350-right-front-three-quarter-2.jpeg.avif
+│           ├── 1761560337776-classic-350-right-front-three-quarter-2.jpeg.avif
+│           └── 1761674934249-Bike1.jpeg
+├── frontend
+│   ├── eslint.config.js
+│   ├── index.html
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── postcss.config.js
+│   ├── project-structure.
+│   ├── public
+│   │   └── vite.svg
+│   ├── README.md
+│   ├── src
+│   │   ├── App.css
+│   │   ├── App.jsx
+│   │   ├── assets
+│   │   │   ├── background.jpg
+│   │   │   ├── Bike1.png
+│   │   │   ├── Bike2.png
+│   │   │   ├── Bike3.png
+│   │   │   ├── Hero.jpg
+│   │   │   ├── hero1.jpg
+│   │   │   ├── Hero2.png
+│   │   │   ├── Hero3.png
+│   │   │   ├── Hero4.png
+│   │   │   ├── HeroImg.png
+│   │   │   ├── HeroImg2.png
+│   │   │   ├── HeroImg3.png
+│   │   │   ├── HeroImg4.png
+│   │   │   ├── logo.jpg
+│   │   │   ├── logo2.png
+│   │   │   ├── logo3.png
+│   │   │   ├── react.svg
+│   │   │   └── VehicleBackground.png
+│   │   ├── components
+│   │   │   ├── admin
+│   │   │   ├── shared
+│   │   │   └── user
+│   │   ├── context
+│   │   │   └── AuthContext.jsx
+│   │   ├── hooks
+│   │   │   └── useAuth.js
+│   │   ├── index.css
+│   │   ├── layouts
+│   │   │   ├── AdminLayout.jsx
+│   │   │   └── UserLayout.jsx
+│   │   ├── lib
+│   │   │   ├── api.js
+│   │   │   └── loadRazorpay.js
+│   │   ├── main.jsx
+│   │   ├── pages
+│   │   │   ├── admin
+│   │   │   ├── auth
+│   │   │   ├── BookingPage.jsx
+│   │   │   ├── BookingSuccess.jsx
+│   │   │   ├── PaymentPreview.jsx
+│   │   │   ├── SaleBikes.jsx
+│   │   │   ├── user
+│   │   │   └── Vehicles.jsx
+│   │   └── services
+│   │       ├── adminApi.js
+│   │       ├── api.js
+│   │       ├── authApi.js
+│   │       └── userApi.js
+│   ├── tailwind.config.js
+│   └── vite.config.js
+├── project-structure.
+├── project-structure.txt
+├── README.md
+└── shared
+    └── branding
+        ├── client1.json
+        ├── client2.json
+        └── default.json
+
+35 directories, 108 files
