@@ -1,0 +1,1 @@
+import{r}from"./index-Btv9iGSA.js";const f=()=>{const[o,t]=r.useState(!1),s=r.useRef(null);return r.useEffect(()=>{const n=s.current;if(n)if("IntersectionObserver"in window){const e=new IntersectionObserver(i=>{i.forEach(c=>{c.isIntersecting&&(t(!0),e.disconnect())})},{rootMargin:"200px"});return e.observe(n),()=>e.disconnect()}else t(!0)},[]),{visible:o,ref:s}};export{f as u};
