@@ -22,22 +22,11 @@ export const sendWhatsAppTemplate = async (to, type, vars = {}) => {
     const contentSid = templates[type];
     if (!contentSid) throw new Error(`Template not configured for type: ${type}`);
 
-    // ✅ Convert all variable values to strings (Twilio requires this)
-   // Inside sendWhatsAppTemplate
-// For Twilio Authentication template, only one variable is expected
-const normalizedVars =
-  type === "OTP"
-    ? { "1": String(vars.otp || vars.code || vars.value) }
-    : Object.fromEntries(Object.entries(vars).map(([k, v]) => [k, String(v)]));
-
-
-await client.messages.create({
-  from: process.env.TWILIO_WHATSAPP_NUMBER,
-  to: formattedTo,
-  contentSid,
-  contentVariables: JSON.stringify(normalizedVars),
-});
-
+    // ✅ Twilio expects "code" variable for WA Authentication templates
+    const normalizedVars =
+      type === "OTP"
+        ? { code: String(vars.otp || vars.code || vars.value) }
+        : Object.fromEntries(Object.entries(vars).map(([k, v]) => [k, String(v)]));
 
     console.log(`🟦 Sending ${type} to ${formattedTo} with vars:`, normalizedVars);
 
