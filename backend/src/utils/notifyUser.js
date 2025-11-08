@@ -24,10 +24,12 @@ export const sendWhatsAppTemplate = async (to, type, vars = {}) => {
 
     // ✅ Convert all variable values to strings (Twilio requires this)
    // Inside sendWhatsAppTemplate
-const normalizedVars = {};
-for (const key in vars) {
-  normalizedVars[key] = String(vars[key]);
-}
+// For Twilio Authentication template, only one variable is expected
+const normalizedVars =
+  type === "OTP"
+    ? { "1": String(vars.otp || vars.code || vars.value) }
+    : Object.fromEntries(Object.entries(vars).map(([k, v]) => [k, String(v)]));
+
 
 await client.messages.create({
   from: process.env.TWILIO_WHATSAPP_NUMBER,
