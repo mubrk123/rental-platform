@@ -33,6 +33,7 @@ const BookingPage = () => {
   const [loading, setLoading] = useState(false);
   const [vehicle, setVehicle] = useState(null);
   const [vehicleLoading, setVehicleLoading] = useState(true);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   // ---------------- Fetch Vehicle ----------------
   useEffect(() => {
@@ -178,6 +179,7 @@ const BookingPage = () => {
     e.preventDefault();
     if (vehicle?.availableCount === 0) return toast.error("Vehicle not available");
     if (!otpVerified) return toast.error("Verify phone number first");
+    if (!termsAccepted) return toast.error("Please agree to the Terms & Conditions");
     setLoading(true);
 
     try {
@@ -257,7 +259,7 @@ const BookingPage = () => {
       <Toaster position="top-center" />
       <div className="flex flex-col lg:flex-row w-full max-w-6xl bg-white shadow-xl rounded-2xl overflow-hidden border border-blue-100">
         {/* LEFT COLUMN */}
-        <div className="w-full lg:w-2/3 p-8">
+        <div className="w-full lg:w-2/3 p-6 sm:p-8">
           <h2 className="text-3xl font-bold text-[#0A3D62] mb-6">Complete Your Booking</h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -266,20 +268,29 @@ const BookingPage = () => {
             <input type="email" name="email" value={form.email} onChange={handleChange} placeholder="Email Address" required className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-sky-400" />
 
             {/* Phone + OTP */}
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <div className="relative flex-1">
                 <input type="tel" name="phoneNumber" value={form.phoneNumber} onChange={handleChange} required pattern="[0-9]{10}" placeholder="10-digit Phone Number" className={`w-full border rounded-lg p-3 ${otpVerified ? "border-green-400 pr-10" : "border-gray-300"}`} />
                 {otpVerified && <CheckCircle className="absolute right-3 top-3 text-green-600 w-5 h-5" />}
               </div>
-              <button type="button" onClick={handleSendOtp} disabled={sendingOtp || otpVerified || timer > 0} className={`px-4 rounded-lg font-medium text-white transition ${otpVerified ? "bg-green-600 cursor-default" : "bg-[#0A3D62] hover:bg-sky-700 disabled:opacity-60"}`}>
+              <button
+                type="button"
+                onClick={handleSendOtp}
+                disabled={sendingOtp || otpVerified || timer > 0}
+                className={`px-4 py-3 rounded-lg font-medium text-white transition text-sm sm:text-base ${
+                  otpVerified ? "bg-green-600 cursor-default" : "bg-[#0A3D62] hover:bg-sky-700 disabled:opacity-60"
+                }`}
+              >
                 {otpVerified ? "✅ Verified" : sendingOtp ? "Sending..." : timer > 0 ? `Resend in ${timer}s` : otpSent ? "Resend OTP" : "Send OTP"}
               </button>
             </div>
 
             {otpSent && !otpVerified && (
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="Enter 6-digit OTP" className="flex-1 border border-gray-300 rounded-lg p-3" />
-                <button type="button" onClick={handleVerifyOtp} className="bg-green-600 text-white px-4 rounded-lg hover:bg-green-700 transition">Verify</button>
+                <button type="button" onClick={handleVerifyOtp} className="bg-green-600 text-white px-4 rounded-lg hover:bg-green-700 transition">
+                  Verify
+                </button>
               </div>
             )}
 
@@ -289,7 +300,23 @@ const BookingPage = () => {
             {/* License Upload */}
             <FileUpload label="Upload Driver’s License" name="licenseDocument" file={form.licenseDocument} onChange={handleFileChange} />
 
-            <p className="text-xs text-gray-500 mt-2 italic">⚠️ Please upload clear images only. Each file must be under <strong>4 MB</strong>.</p>
+            {/* Terms & Conditions */}
+            <div className="border rounded-lg p-3 bg-gray-50">
+              <h4 className="font-semibold text-gray-700 mb-2">Terms & Conditions</h4>
+              <ul className="text-sm text-gray-600 list-disc list-inside space-y-1">
+                <li>The renter must present a valid driving license at pickup.</li>
+                <li>Fuel, traffic fines, and damages are the user’s responsibility.</li>
+                <li>Late returns beyond 1 hour will incur additional hourly charges.</li>
+                <li>Vehicles must be returned in the same condition as rented.</li>
+                 <li>The actual color of the bike or scooter may vary from the images displayed on the website.</li>
+                <li>Bookings once confirmed are non-refundable but can be rescheduled.</li>
+              </ul>
+
+              <label className="flex items-start mt-3 space-x-2 text-sm text-gray-700">
+                <input type="checkbox" checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)} className="mt-1" />
+                <span>I have read and agree to the Terms & Conditions.</span>
+              </label>
+            </div>
 
             <button type="submit" disabled={loading} className="w-full bg-gradient-to-r from-[#0A3D62] to-[#3DC1D3] text-white py-3 rounded-lg font-semibold hover:shadow-lg transition">
               {loading ? "Processing..." : "Proceed to Payment"}
@@ -315,14 +342,12 @@ const BookingPage = () => {
               <div className="w-full h-40 bg-white/20 rounded-lg animate-pulse" />
             ) : vehicle ? (
               <>
-                <img loading="lazy" decoding="async" src={vehicle.images?.[0] || "https://placehold.co/400x200?text=No+Image"} alt={vehicle.modelName} className="rounded-lg mb-3 w-full h-40 object-contain bg-white/10 p-2 transition-all duration-500 hover:scale-[1.02]" />
+                <img loading="lazy" decoding="async" src={vehicle.images?.[0] || "https://placehold.co/400x200?text=No+Image"} alt={vehicle.modelName} className="rounded-lg mb-3 w-full h-40 object-contain bg-white/10 p-2" />
                 <p className="font-bold text-lg">{vehicle.brand} {vehicle.modelName}</p>
                 <p className="text-sm text-white/80">₹{vehicle.rentPerDay} / day</p>
               </>
             ) : (
-              <div className="w-full h-40 bg-white/20 rounded-lg flex items-center justify-center text-white/70">
-                Vehicle not found
-              </div>
+              <div className="w-full h-40 bg-white/20 rounded-lg flex items-center justify-center text-white/70">Vehicle not found</div>
             )}
 
             <div className="mt-3 text-sm space-y-1">

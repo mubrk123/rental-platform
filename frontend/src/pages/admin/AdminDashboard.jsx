@@ -22,8 +22,9 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import { jwtDecode } from "jwt-decode"; // ✅ Correct import for jwt-decode v4+
 
-// ✅ Lazy load all heavy subpages (loads on demand)
+// ✅ Lazy load all heavy subpages
 const DashboardHome = lazy(() => import("./DashboardHome"));
 const BookingsList = lazy(() => import("./BookingsList"));
 const UploadedVehicles = lazy(() => import("./UploadedVehicles"));
@@ -36,9 +37,31 @@ const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [isMainAdmin, setIsMainAdmin] = useState(false);
 
+  /* ------------------------------------------------------------------
+   🧩 Decode Token and Identify Admin Type
+  ------------------------------------------------------------------ */
   useEffect(() => {
-    // Disable body scroll when mobile sidebar is open
+    const token = localStorage.getItem("adminToken");
+    if (token) {
+      try {
+        const decoded = jwtDecode(token);
+        setIsMainAdmin(decoded.isMainAdmin || false);
+      } catch (err) {
+        console.error("Invalid admin token:", err);
+        localStorage.removeItem("adminToken");
+        window.location.href = "/";
+      }
+    } else {
+      window.location.href = "/";
+    }
+  }, []);
+
+  /* ------------------------------------------------------------------
+   🔒 Disable background scroll when sidebar open (mobile)
+  ------------------------------------------------------------------ */
+  useEffect(() => {
     document.body.style.overflow = sidebarOpen ? "hidden" : "auto";
   }, [sidebarOpen]);
 
@@ -47,7 +70,20 @@ const AdminDashboard = () => {
     window.location.href = "/";
   };
 
-  // ✅ Memoized content switcher — only re-renders when tab changes
+  /* ------------------------------------------------------------------
+   🧭 Handle Tab Navigation + Access Restriction
+  ------------------------------------------------------------------ */
+  const handleTabClick = (key) => {
+    if (!isMainAdmin && !["dashboard", "bookings"].includes(key)) {
+      alert("Access restricted to Main Admin only.");
+      return;
+    }
+    setActiveTab(key);
+  };
+
+  /* ------------------------------------------------------------------
+   📄 Memoized Content Renderer
+  ------------------------------------------------------------------ */
   const content = useMemo(() => {
     switch (activeTab) {
       case "dashboard":
@@ -69,35 +105,47 @@ const AdminDashboard = () => {
     }
   }, [activeTab]);
 
-  const NAV_ITEMS = useMemo(
-    () => [
+  /* ------------------------------------------------------------------
+   🧩 Dynamic Navigation Tabs Based on Role
+  ------------------------------------------------------------------ */
+  const NAV_ITEMS = useMemo(() => {
+    const items = [
       ["Dashboard", Home, "dashboard"],
       ["Bookings", Calendar, "bookings"],
-      ["My Vehicles", Bike, "vehicles"],
-      ["Upload Vehicle", Upload, "upload"],
-      ["Upload Sale Bike", Upload, "upload-sale"],
-      ["Sale Bike List", List, "sale-list"],
-      ["Settings", Settings, "settings"],
-    ],
-    []
-  );
+    ];
 
+    if (isMainAdmin) {
+      items.push(
+        ["My Vehicles", Bike, "vehicles"],
+        ["Upload Vehicle", Upload, "upload"],
+        ["Upload Sale Bike", Upload, "upload-sale"],
+        ["Sale Bike List", List, "sale-list"],
+        ["Settings", Settings, "settings"]
+      );
+    }
+
+    return items;
+  }, [isMainAdmin]);
+
+  /* ------------------------------------------------------------------
+   🖥️ Main UI Structure
+  ------------------------------------------------------------------ */
   return (
     <div className="flex min-h-screen bg-[#F5F8FB] text-[#0E3A61] font-[Inter] transition-all duration-300">
-      {/* ===== SIDEBAR ===== */}
+      {/* ===== SIDEBAR (Desktop) ===== */}
       <aside
         className={`${
           collapsed ? "w-20" : "w-64"
-        } hidden md:flex flex-col bg-gradient-to-b from-[#0E3A61]/95 to-[#1E88E5]/95 shadow-2xl transition-all duration-300 ease-in-out will-change-transform border-r border-blue-100`}
+        } hidden md:flex flex-col bg-gradient-to-b from-[#0E3A61]/95 to-[#1E88E5]/95 shadow-2xl transition-all duration-300 border-r border-blue-100`}
       >
-        {/* Header */}
+        {/* Sidebar Header */}
         <div className="flex items-center justify-between p-5 border-b border-blue-200">
           <h2
             className={`${
               collapsed ? "text-lg" : "text-xl"
             } font-bold text-white tracking-wide`}
           >
-            {collapsed ? "A" : "Admin Panel"}
+            {collapsed ? "A" : isMainAdmin ? "Main Admin" : "Handler"}
           </h2>
           <button
             onClick={() => setCollapsed(!collapsed)}
@@ -120,12 +168,12 @@ const AdminDashboard = () => {
               label={label}
               active={activeTab === key}
               collapsed={collapsed}
-              onClick={() => setActiveTab(key)}
+              onClick={() => handleTabClick(key)}
             />
           ))}
         </nav>
 
-        {/* Logout */}
+        {/* Logout Button */}
         <div className="mt-auto border-t border-blue-200 p-4">
           <button
             onClick={handleLogout}
@@ -137,8 +185,10 @@ const AdminDashboard = () => {
       </aside>
 
       {/* ===== MOBILE SIDEBAR ===== */}
-      <div className="md:hidden fixed top-0 left-0 w-full bg-gradient-to-r from-[#0E3A61]/95 to-[#1E88E5]/95 backdrop-blur-md border-b border-blue-200 z-30 flex items-center justify-between px-4 py-3">
-        <h2 className="text-lg font-semibold text-white">Admin Panel</h2>
+      <div className="md:hidden fixed top-0 left-0 w-full bg-gradient-to-r from-[#0E3A61]/95 to-[#1E88E5]/95 border-b border-blue-200 z-30 flex items-center justify-between px-4 py-3">
+        <h2 className="text-lg font-semibold text-white">
+          {isMainAdmin ? "Main Admin" : "Handler"}
+        </h2>
         <button
           onClick={() => setSidebarOpen(true)}
           className="text-white hover:text-gray-200 p-2 rounded-lg"
@@ -155,7 +205,9 @@ const AdminDashboard = () => {
           />
           <div className="relative bg-gradient-to-b from-[#0E3A61] to-[#1E88E5] w-64 p-5 shadow-xl z-50 flex flex-col border-r border-blue-200">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-lg font-bold text-white">Menu</h2>
+              <h2 className="text-lg font-bold text-white">
+                {isMainAdmin ? "Main Admin" : "Handler"}
+              </h2>
               <button
                 onClick={() => setSidebarOpen(false)}
                 className="text-gray-200 hover:text-white"
@@ -172,7 +224,7 @@ const AdminDashboard = () => {
                   label={label}
                   active={activeTab === key}
                   onClick={() => {
-                    setActiveTab(key);
+                    handleTabClick(key);
                     setSidebarOpen(false);
                   }}
                 />
@@ -195,7 +247,9 @@ const AdminDashboard = () => {
       <main className="flex-1 flex flex-col min-h-screen">
         {/* Header */}
         <header className="hidden md:flex items-center justify-between bg-gradient-to-r from-[#0E3A61]/95 to-[#1E88E5]/95 text-white px-8 py-4 sticky top-0 z-20 shadow-lg">
-          <h1 className="text-lg font-semibold">Admin Dashboard</h1>
+          <h1 className="text-lg font-semibold">
+            {isMainAdmin ? "Main Admin Dashboard" : "Handler Dashboard"}
+          </h1>
           <div className="flex items-center space-x-4">
             <div className="relative">
               <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-200" />
@@ -226,7 +280,9 @@ const AdminDashboard = () => {
   );
 };
 
-// ✅ Memoized SidebarButton for performance
+/* ------------------------------------------------------------------
+ ✅ Sidebar Button Component
+------------------------------------------------------------------ */
 const SidebarButton = memo(({ icon: Icon, label, active, collapsed, onClick }) => (
   <button
     onClick={onClick}

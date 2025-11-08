@@ -1,14 +1,15 @@
+// routes/saleBikeRoutes.js
 import express from "express";
 import SaleBike from "../models/SaleBike.js";
 import { upload, uploadToCloudinary, cloudinary } from "../utils/upload.js";
-import { verifyAdmin } from "../middleware/adminAuth.js"; // ✅ Use your existing named export
+import { verifyMainAdmin } from "../middleware/adminAuth.js"; // ✅ Now self-sufficient middleware
 
 const router = express.Router();
 
-/* -------------------------------------------------------------------------- */
-/* 🛠️  Create a new sale bike (Admin only)                                    */
-/* -------------------------------------------------------------------------- */
-router.post("/", verifyAdmin, upload.array("images", 10), async (req, res) => {
+/* --------------------------------------------------------------------------
+ * 🆕 POST /api/sale-bikes — Create new sale bike (Main Admin only)
+ * -------------------------------------------------------------------------- */
+router.post("/", verifyMainAdmin, upload.array("images", 10), async (req, res) => {
   try {
     const { modelName, brand, price, description, year, mileage, condition, city } = req.body;
 
@@ -19,18 +20,19 @@ router.post("/", verifyAdmin, upload.array("images", 10), async (req, res) => {
       });
     }
 
-    // ✅ Cloudinary URLs (upload.js already configured)
-   // NEW:
-const imagePaths = await Promise.all(
-  req.files.map((f) => uploadToCloudinary(f.buffer, "sale-bikes"))
-);
+    // ✅ Upload all images to Cloudinary
+    const imagePaths = await Promise.all(
+      req.files.map((f) => uploadToCloudinary(f.buffer, "sale-bikes"))
+    );
 
     if (imagePaths.length < 3) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Please upload at least 3 images." });
+      return res.status(400).json({
+        success: false,
+        message: "Please upload at least 3 images.",
+      });
     }
 
+    // ✅ Create new sale bike entry
     const saleBike = new SaleBike({
       modelName,
       brand,
@@ -41,7 +43,7 @@ const imagePaths = await Promise.all(
       condition: condition || "Used",
       city: city || "Unknown",
       images: imagePaths,
-      adminId: req.admin?.id, // ✅ From verifyAdmin decoded token
+      adminId: req.admin?.id,
     });
 
     await saleBike.save();
@@ -52,9 +54,9 @@ const imagePaths = await Promise.all(
   }
 });
 
-/* -------------------------------------------------------------------------- */
-/* 📋  Get all sale bikes (Public)                                            */
-/* -------------------------------------------------------------------------- */
+/* --------------------------------------------------------------------------
+ * 📋 GET /api/sale-bikes — Get all sale bikes (Public)
+ * -------------------------------------------------------------------------- */
 router.get("/", async (req, res) => {
   try {
     const page = Math.max(1, Number(req.query.page) || 1);
@@ -73,9 +75,9 @@ router.get("/", async (req, res) => {
   }
 });
 
-/* -------------------------------------------------------------------------- */
-/* 🆕  Get latest N sale bikes (Public)                                       */
-/* -------------------------------------------------------------------------- */
+/* --------------------------------------------------------------------------
+ * 🆕 GET /api/sale-bikes/latest — Get latest bikes (Public)
+ * -------------------------------------------------------------------------- */
 router.get("/latest", async (req, res) => {
   try {
     const limit = Number(req.query.limit) || 6;
@@ -87,10 +89,10 @@ router.get("/latest", async (req, res) => {
   }
 });
 
-/* -------------------------------------------------------------------------- */
-/* ✏️  Update sale bike (Admin only)                                          */
-/* -------------------------------------------------------------------------- */
-router.put("/:id", verifyAdmin, upload.array("newImages", 10), async (req, res) => {
+/* --------------------------------------------------------------------------
+ * ✏️ PUT /api/sale-bikes/:id — Update sale bike (Main Admin only)
+ * -------------------------------------------------------------------------- */
+router.put("/:id", verifyMainAdmin, upload.array("newImages", 10), async (req, res) => {
   try {
     const bike = await SaleBike.findById(req.params.id);
     if (!bike)
@@ -99,7 +101,9 @@ router.put("/:id", verifyAdmin, upload.array("newImages", 10), async (req, res) 
     const existingImages = req.body.existingImages
       ? JSON.parse(req.body.existingImages)
       : [];
-    const newImagePaths = req.files?.map((f) => f.path) || [];
+    const newImagePaths = req.files?.length
+      ? await Promise.all(req.files.map((f) => uploadToCloudinary(f.buffer, "sale-bikes")))
+      : [];
 
     bike.images = [...existingImages, ...newImagePaths];
     Object.assign(bike, req.body);
@@ -112,22 +116,20 @@ router.put("/:id", verifyAdmin, upload.array("newImages", 10), async (req, res) 
     });
   } catch (err) {
     console.error("❌ sale-bikes update error:", err);
-    res
-      .status(500)
-      .json({ success: false, message: "Failed to update sale bike" });
+    res.status(500).json({ success: false, message: "Failed to update sale bike" });
   }
 });
 
-/* -------------------------------------------------------------------------- */
-/* 🗑️  Delete sale bike (Admin only)                                          */
-/* -------------------------------------------------------------------------- */
-router.delete("/:id", verifyAdmin, async (req, res) => {
+/* --------------------------------------------------------------------------
+ * 🗑️ DELETE /api/sale-bikes/:id — Delete sale bike (Main Admin only)
+ * -------------------------------------------------------------------------- */
+router.delete("/:id", verifyMainAdmin, async (req, res) => {
   try {
     const bike = await SaleBike.findById(req.params.id);
     if (!bike)
       return res.status(404).json({ success: false, message: "Bike not found" });
 
-    // 🧹 Delete Cloudinary images
+    // 🧹 Delete images from Cloudinary
     for (const url of bike.images || []) {
       try {
         const parts = url.split("/");
@@ -145,5 +147,22 @@ router.delete("/:id", verifyAdmin, async (req, res) => {
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
+/* --------------------------------------------------------------------------
+ * 🆔 GET /api/sale-bikes/:id — Get single bike details (Public)
+ * -------------------------------------------------------------------------- */
+router.get("/:id", async (req, res) => {
+  try {
+    const bike = await SaleBike.findById(req.params.id).lean();
+    if (!bike) {
+      return res.status(404).json({ success: false, message: "Bike not found" });
+    }
+
+    res.json({ success: true, bike });
+  } catch (err) {
+    console.error("❌ sale-bikes get-by-id error:", err);
+    res.status(500).json({ success: false, message: "Failed to fetch bike details" });
+  }
+});
+
 
 export default router;

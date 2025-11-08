@@ -2,24 +2,26 @@
 import express from "express";
 import Vehicle from "../models/Vehicle.js";
 import Booking from "../models/Booking.js";
-//import { upload } from "../utils/upload.js"; // ✅ Cloudinary-based multer
-import { upload, uploadToCloudinary } from "../utils/upload.js";
- // for deleting files if needed
+import { upload, uploadToCloudinary, cloudinary } from "../utils/upload.js";
+import { verifyMainAdmin } from "../middleware/adminAuth.js"; // ✅ for restricted routes
 
 const router = express.Router();
 
-/**
- * ✅ POST /api/vehicles
- * Upload new vehicle directly to Cloudinary
- */
-router.post("/", upload.array("images", 5), async (req, res) => {
+/* --------------------------------------------------------------------------
+ * 🆕 POST /api/vehicles — Upload new vehicle (Main Admin only)
+ * -------------------------------------------------------------------------- */
+router.post("/", verifyMainAdmin, upload.array("images", 5), async (req, res) => {
   try {
     const { modelName, brand, rentPerDay, totalQuantity, city, type } = req.body;
 
-    // ✅ Cloudinary automatically returns URLs in file.path
-   const imageUrls = await Promise.all(
-  req.files.map((f) => uploadToCloudinary(f.buffer, "vehicles"))
-);
+    if (!modelName || !brand || !rentPerDay || !city) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    // ✅ Upload images to Cloudinary
+    const imageUrls = await Promise.all(
+      req.files.map((f) => uploadToCloudinary(f.buffer, "vehicles"))
+    );
 
     const newVehicle = new Vehicle({
       modelName,
@@ -44,9 +46,9 @@ router.post("/", upload.array("images", 5), async (req, res) => {
   }
 });
 
-/**
- * ✅ GET /api/vehicles (optional ?city=)
- */
+/* --------------------------------------------------------------------------
+ * 📋 GET /api/vehicles — Get all vehicles (optional ?city=)
+ * -------------------------------------------------------------------------- */
 router.get("/", async (req, res) => {
   try {
     const city = req.query.city;
@@ -55,7 +57,6 @@ router.get("/", async (req, res) => {
 
     const formattedVehicles = vehicles.map((v) => ({
       ...v,
-      images: v.images, // already Cloudinary URLs
       availableCount: Math.max(
         0,
         (v.totalQuantity || 0) - (v.bookedQuantity || 0)
@@ -69,9 +70,9 @@ router.get("/", async (req, res) => {
   }
 });
 
-/**
- * ✅ GET /api/vehicles/:id
- */
+/* --------------------------------------------------------------------------
+ * 📄 GET /api/vehicles/:id — Get a specific vehicle
+ * -------------------------------------------------------------------------- */
 router.get("/:id", async (req, res) => {
   try {
     const v = await Vehicle.findById(req.params.id);
@@ -80,7 +81,6 @@ router.get("/:id", async (req, res) => {
 
     const formatted = {
       ...v.toObject(),
-      images: v.images,
       availableCount: Math.max(
         0,
         (v.totalQuantity || 0) - (v.bookedQuantity || 0)
@@ -94,9 +94,9 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-/**
- * ✅ GET upcoming bookings for a vehicle
- */
+/* --------------------------------------------------------------------------
+ * 🚗 GET /api/vehicles/:id/bookings/upcoming — Upcoming bookings for vehicle
+ * -------------------------------------------------------------------------- */
 router.get("/:id/bookings/upcoming", async (req, res) => {
   try {
     const now = new Date();
@@ -118,17 +118,57 @@ router.get("/:id/bookings/upcoming", async (req, res) => {
   }
 });
 
-/**
- * ✅ DELETE /api/vehicles/:id
- * Deletes vehicle and Cloudinary images
- */
-router.delete("/:id", async (req, res) => {
+/* --------------------------------------------------------------------------
+ * ✏️ PUT /api/vehicles/:id — Update vehicle (Main Admin only)
+ * -------------------------------------------------------------------------- */
+router.put("/:id", verifyMainAdmin, upload.array("images", 5), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { modelName, brand, rentPerDay, totalQuantity, city, type } = req.body;
+
+    const vehicle = await Vehicle.findById(id);
+    if (!vehicle)
+      return res.status(404).json({ success: false, message: "Vehicle not found" });
+
+    // ✅ Update fields
+    vehicle.modelName = modelName || vehicle.modelName;
+    vehicle.brand = brand || vehicle.brand;
+    vehicle.rentPerDay = rentPerDay || vehicle.rentPerDay;
+    vehicle.totalQuantity = totalQuantity || vehicle.totalQuantity;
+    vehicle.type = type ? type.toLowerCase() : vehicle.type;
+    vehicle.location = { city: city || vehicle.location?.city };
+
+    // ✅ New images (replace old)
+    if (req.files && req.files.length > 0) {
+      const newUrls = await Promise.all(
+        req.files.map((f) => uploadToCloudinary(f.buffer, "vehicles"))
+      );
+      vehicle.images = newUrls;
+    }
+
+    await vehicle.save();
+
+    res.json({
+      success: true,
+      message: "✅ Vehicle updated successfully",
+      vehicle,
+    });
+  } catch (err) {
+    console.error("❌ Vehicle update failed:", err);
+    res.status(500).json({ success: false, message: "Update failed", error: err.message });
+  }
+});
+
+/* --------------------------------------------------------------------------
+ * 🗑️ DELETE /api/vehicles/:id — Delete vehicle (Main Admin only)
+ * -------------------------------------------------------------------------- */
+router.delete("/:id", verifyMainAdmin, async (req, res) => {
   try {
     const vehicle = await Vehicle.findById(req.params.id);
     if (!vehicle)
       return res.status(404).json({ success: false, message: "Vehicle not found" });
 
-    // ✅ delete Cloudinary files
+    // ✅ Delete Cloudinary images
     for (const url of vehicle.images || []) {
       try {
         const parts = url.split("/");
@@ -144,56 +184,6 @@ router.delete("/:id", async (req, res) => {
   } catch (error) {
     console.error("❌ Error deleting vehicle:", error);
     res.status(500).json({ message: "Error deleting vehicle" });
-  }
-});
-
-/**
- * ✅ PUT /api/vehicles/:id — Update existing vehicle
- */
-/**
- * ✅ PUT /api/vehicles/:id — Update existing vehicle with Cloudinary support
- */
-router.put("/:id", upload.array("images", 5), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { modelName, brand, rentPerDay, totalQuantity, city, type } = req.body;
-
-    const vehicle = await Vehicle.findById(id);
-    if (!vehicle)
-      return res.status(404).json({ success: false, message: "Vehicle not found" });
-
-    // ✅ Update basic fields
-    vehicle.modelName = modelName || vehicle.modelName;
-    vehicle.brand = brand || vehicle.brand;
-    vehicle.rentPerDay = rentPerDay || vehicle.rentPerDay;
-    vehicle.totalQuantity = totalQuantity || vehicle.totalQuantity;
-    vehicle.type = type ? type.toLowerCase() : vehicle.type;
-    vehicle.location = { city: city || vehicle.location?.city };
-
-    // ✅ Handle new image uploads if provided
-    if (req.files && req.files.length > 0) {
-      const newUrls = await Promise.all(
-        req.files.map((f) => uploadToCloudinary(f.buffer, "vehicles"))
-      );
-      vehicle.images = newUrls; // Replace all existing images
-    }
-
-    await vehicle.save();
-
-    const updatedVehicle = vehicle.toObject();
-    updatedVehicle.availableCount = Math.max(
-      0,
-      (vehicle.totalQuantity || 0) - (vehicle.bookedQuantity || 0)
-    );
-
-    res.json({
-      success: true,
-      message: "✅ Vehicle updated successfully",
-      vehicle: updatedVehicle,
-    });
-  } catch (err) {
-    console.error("❌ Vehicle update failed:", err);
-    res.status(500).json({ success: false, message: "Update failed", error: err.message });
   }
 });
 

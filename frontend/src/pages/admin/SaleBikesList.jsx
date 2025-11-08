@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { Eye, X, Loader2, Pencil, Save, Trash2 } from "lucide-react";
+import SaleBikeCard from "../../components/SaleBikeCard"; // ✅ Import the card component
 
 const SaleBikesList = () => {
   const [bikes, setBikes] = useState([]);
@@ -11,6 +12,7 @@ const SaleBikesList = () => {
   const [existingImages, setExistingImages] = useState([]);
   const [newImages, setNewImages] = useState([]);
 
+  // ✅ Fetch all bikes on mount
   useEffect(() => {
     const fetchBikes = async () => {
       try {
@@ -25,6 +27,7 @@ const SaleBikesList = () => {
     fetchBikes();
   }, []);
 
+  // ✅ Start edit mode
   const handleEditClick = (bike) => {
     setEditMode(true);
     setFormData({
@@ -38,47 +41,56 @@ const SaleBikesList = () => {
     setNewImages([]);
   };
 
+  // ✅ Handle input change
   const handleInputChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
 
+  // ✅ Handle new image upload
   const handleNewImageChange = (e) => {
     setNewImages(Array.from(e.target.files));
   };
 
+  // ✅ Delete one image from the list
   const handleDeleteExistingImage = (index) => {
     const updated = existingImages.filter((_, i) => i !== index);
     setExistingImages(updated);
   };
 
+  // ✅ Save updated details
   const handleUpdate = async (e) => {
     e.preventDefault();
     if (!selectedBike) return;
 
     const data = new FormData();
     Object.entries(formData).forEach(([key, val]) => data.append(key, val));
-
-    // Append remaining images
     data.append("existingImages", JSON.stringify(existingImages));
-
-    // Append new images
     newImages.forEach((file) => data.append("newImages", file));
 
     try {
       await axios.put(
         `${import.meta.env.VITE_API_URL}/sale-bikes/${selectedBike._id}`,
         data,
-        {
-          headers: { "Content-Type": "multipart/form-data" },
-        }
+        { headers: { "Content-Type": "multipart/form-data" } }
       );
       alert("✅ Bike updated successfully!");
-      window.location.reload();
+      setEditMode(false);
+      setSelectedBike(null);
+
+      // Refresh only state (not full reload)
+      setBikes((prev) =>
+        prev.map((b) =>
+          b._id === selectedBike._id
+            ? { ...b, ...formData, images: [...existingImages, ...newImages.map((f) => URL.createObjectURL(f))] }
+            : b
+        )
+      );
     } catch (err) {
       console.error("Update failed:", err);
       alert("❌ Failed to update bike details.");
     }
   };
 
+  // ✅ Resolve image URLs
   const resolveImageUrl = (path) => {
     if (!path) return "https://placehold.co/400x300?text=No+Image";
     return path.startsWith("http")
@@ -102,50 +114,22 @@ const SaleBikesList = () => {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {bikes.map((bike) => (
-            <div
+            <SaleBikeCard
               key={bike._id}
-              className="bg-white border border-blue-100 rounded-lg shadow-sm hover:shadow-lg transition"
-            >
-              <img
-                src={resolveImageUrl(bike.images?.[0])}
-                alt={bike.modelName}
-                className="w-full h-48 object-cover rounded-t-lg"
-                onError={(e) =>
-                  (e.target.src = "https://placehold.co/400x300?text=No+Image")
-                }
-              />
-
-              <div className="p-4 space-y-1">
-                <h3 className="text-lg font-semibold text-blue-800">
-                  {bike.modelName}
-                </h3>
-                <p className="text-sm text-gray-600">{bike.brand}</p>
-                <p className="text-sm font-medium text-blue-600">₹{bike.price}</p>
-
-                <div className="flex gap-2 mt-3">
-                  <button
-                    onClick={() => setSelectedBike(bike)}
-                    className="flex-1 flex items-center justify-center bg-gradient-to-r from-sky-500 to-blue-600 text-white px-3 py-2 rounded-lg hover:from-sky-400 hover:to-blue-500 transition"
-                  >
-                    <Eye className="w-4 h-4 mr-1" /> View
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSelectedBike(bike);
-                      handleEditClick(bike);
-                    }}
-                    className="flex-1 flex items-center justify-center bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition"
-                  >
-                    <Pencil className="w-4 h-4 mr-1" /> Edit
-                  </button>
-                </div>
-              </div>
-            </div>
+              bike={bike}
+              isAdmin={true}
+              onView={(bike) => setSelectedBike(bike)}
+              onEdit={(bike) => {
+                setSelectedBike(bike);
+                handleEditClick(bike);
+              }}
+              onDelete={(id) => setBikes((prev) => prev.filter((b) => b._id !== id))} // ✅ Instant delete
+            />
           ))}
         </div>
       )}
 
-      {/* Modal for view/edit */}
+      {/* Modal for View/Edit */}
       {selectedBike && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl shadow-2xl w-[90%] max-w-lg relative p-6 overflow-y-auto max-h-[90vh]">
@@ -190,83 +174,52 @@ const SaleBikesList = () => {
                   Edit Bike Details
                 </h2>
 
-                <div>
-                  <input
-                    type="text"
-                    name="modelName"
-                    value={formData.modelName}
-                    onChange={handleInputChange}
-                    placeholder="Model Name"
-                    className="border rounded-lg p-2 w-full"
-                    required
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Enter the official model name of the bike.
-                  </p>
-                </div>
-
-                <div>
-                  <input
-                    type="text"
-                    name="brand"
-                    value={formData.brand}
-                    onChange={handleInputChange}
-                    placeholder="Brand"
-                    className="border rounded-lg p-2 w-full"
-                    required
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Manufacturer name (e.g., Yamaha, Honda).
-                  </p>
-                </div>
-
-                <div>
-                  <input
-                    type="number"
-                    name="year"
-                    value={formData.year}
-                    onChange={handleInputChange}
-                    placeholder="Year"
-                    className="border rounded-lg p-2 w-full"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Year of manufacturing (optional).
-                  </p>
-                </div>
-
-                <div>
-                  <input
-                    type="number"
-                    name="price"
-                    value={formData.price}
-                    onChange={handleInputChange}
-                    placeholder="Price (₹)"
-                    className="border rounded-lg p-2 w-full"
-                    required
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Enter the selling price in rupees.
-                  </p>
-                </div>
-
-                <div>
-                  <textarea
-                    name="description"
-                    value={formData.description}
-                    onChange={handleInputChange}
-                    placeholder="Short Description"
-                    className="border rounded-lg p-2 w-full"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Brief details about the bike’s condition or highlights.
-                  </p>
-                </div>
+                <input
+                  type="text"
+                  name="modelName"
+                  value={formData.modelName}
+                  onChange={handleInputChange}
+                  placeholder="Model Name"
+                  className="border rounded-lg p-2 w-full"
+                  required
+                />
+                <input
+                  type="text"
+                  name="brand"
+                  value={formData.brand}
+                  onChange={handleInputChange}
+                  placeholder="Brand"
+                  className="border rounded-lg p-2 w-full"
+                  required
+                />
+                <input
+                  type="number"
+                  name="year"
+                  value={formData.year}
+                  onChange={handleInputChange}
+                  placeholder="Year"
+                  className="border rounded-lg p-2 w-full"
+                />
+                <input
+                  type="number"
+                  name="price"
+                  value={formData.price}
+                  onChange={handleInputChange}
+                  placeholder="Price (₹)"
+                  className="border rounded-lg p-2 w-full"
+                  required
+                />
+                <textarea
+                  name="description"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  placeholder="Short Description"
+                  className="border rounded-lg p-2 w-full"
+                />
 
                 {existingImages.length > 0 && (
                   <div className="mt-4">
-                    <p className="font-medium text-gray-700 mb-2">
-                      Existing Images:
-                    </p>
+                    <p className="font-medium text-gray-700 mb-2">Existing Images:</p>
                     <div className="grid grid-cols-2 gap-3">
                       {existingImages.map((img, i) => (
                         <div key={i} className="relative group">
@@ -288,18 +241,13 @@ const SaleBikesList = () => {
                   </div>
                 )}
 
-                <div className="mt-4">
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/*"
-                    onChange={handleNewImageChange}
-                    className="border rounded-lg p-2 w-full"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Upload new images (optional).
-                  </p>
-                </div>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={handleNewImageChange}
+                  className="border rounded-lg p-2 w-full mt-2"
+                />
 
                 <button
                   type="submit"

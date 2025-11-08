@@ -484,17 +484,129 @@ const LandingPage = () => {
               </p>
             ) : (
               salePreview.map((b) => (
+                // <SaleBikeCard
+                //   key={b._id}
+                //   bike={b}
+                //   onView={(bike) => setSelectedSaleBike(bike)}
+                //   onImageClick={(img) => setImageModalSrc(img)}
+                // />
                 <SaleBikeCard
-                  key={b._id}
-                  bike={b}
-                  onView={(bike) => setSelectedSaleBike(bike)}
-                  onImageClick={(img) => setImageModalSrc(img)}
-                />
+  key={b._id}
+  bike={b}
+  onView={async (bike) => {
+  try {
+    const res = await axios.get(`${import.meta.env.VITE_API_URL}/sale-bikes/${bike._id}`);
+    setSelectedSaleBike(res.data.bike);
+  } catch (err) {
+    console.error("Failed to fetch bike details:", err);
+    alert("Unable to load full details. Please try again.");
+  }
+}}
+
+  onImageClick={(img) => setImageModalSrc(img)}
+  isAdmin={false}
+/>
+
               ))
             )}
           </div>
         </div>
       </section>
+      {/* BIKE DETAILS MODAL */}
+{selectedSaleBike && (
+  <div
+    className="fixed inset-0 bg-black/70 flex items-center justify-center z-[70] p-4 overflow-auto"
+    onClick={() => setSelectedSaleBike(null)}
+  >
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-xl relative text-gray-800"
+    >
+      {/* Close Button */}
+      <button
+        onClick={() => setSelectedSaleBike(null)}
+        className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+      >
+        ✕
+      </button>
+
+      {/* Bike Images */}
+      {selectedSaleBike.images?.length > 0 ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+          {selectedSaleBike.images.map((img, idx) => (
+            <img
+              key={idx}
+              src={img}
+              alt={`Bike ${idx + 1}`}
+              className="w-full h-36 object-cover rounded-md border border-gray-200"
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="w-full h-36 bg-gray-100 rounded-md mb-4 flex items-center justify-center text-gray-400">
+          No Images Available
+        </div>
+      )}
+
+      {/* Details Section */}
+      <h2 className="text-2xl font-bold text-sky-800 mb-2">
+        {selectedSaleBike.brand} {selectedSaleBike.modelName}
+      </h2>
+      <p className="text-lg font-semibold text-gray-700 mb-3">
+        ₹{selectedSaleBike.price?.toLocaleString()}
+      </p>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-2 text-sm mb-4">
+        {selectedSaleBike.year && (
+          <p><span className="font-semibold">Year:</span> {selectedSaleBike.year}</p>
+        )}
+        {selectedSaleBike.owner && (
+          <p><span className="font-semibold">Owner:</span> {selectedSaleBike.owner}</p>
+        )}
+        {selectedSaleBike.kmsDriven && (
+          <p><span className="font-semibold">Driven:</span> {selectedSaleBike.kmsDriven} km</p>
+        )}
+        {selectedSaleBike.registrationNumber && (
+          <p><span className="font-semibold">Reg No:</span> {selectedSaleBike.registrationNumber}</p>
+        )}
+        {selectedSaleBike.fuelType && (
+          <p><span className="font-semibold">Fuel Type:</span> {selectedSaleBike.fuelType}</p>
+        )}
+        {selectedSaleBike.color && (
+          <p><span className="font-semibold">Color:</span> {selectedSaleBike.color}</p>
+        )}
+        {selectedSaleBike.condition && (
+          <p><span className="font-semibold">Condition:</span> {selectedSaleBike.condition}</p>
+        )}
+      </div>
+
+      {/* Description */}
+      {selectedSaleBike.description && (
+        <p className="text-gray-600 mb-5 leading-relaxed">
+          {selectedSaleBike.description}
+        </p>
+      )}
+
+      {/* Buttons */}
+      <div className="flex flex-col sm:flex-row gap-3 mt-4">
+        <button
+          onClick={() => setSelectedSaleBike(null)}
+          className="flex-1 bg-sky-600 text-white py-2 rounded-lg font-semibold hover:bg-sky-700 transition-all"
+        >
+          Close
+        </button>
+        <button
+          onClick={() => alert('📞 Contact Seller form coming soon!')}
+          className="flex-1 bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700 transition-all"
+        >
+          Contact Seller
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+
 
       {/* ABOUT CITY */}
       <section className="bg-gradient-to-r from-sky-700 to-sky-500 text-white py-20 px-8 text-center">
