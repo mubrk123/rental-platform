@@ -1,11 +1,14 @@
-// frontend/src/pages/LandingPage.jsx
 import React, { useState, useEffect, useRef } from "react";
-import { Menu, Search, Eye, X } from "lucide-react";
-import { useNavigate, Link } from "react-router-dom";
+import { Menu, Search, Eye, X, Phone } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import HeroImg from "../../assets/HeroImg4.png";
 import Logo from "../../assets/logo2.png";
 import axios from "axios";
+import SaleBikeCard from "../../components/SaleBikeCard"; // ✅ new import
 
+/* -------------------------------------------------------------------------- */
+/* 📍 Constants                                                               */
+/* -------------------------------------------------------------------------- */
 const LOCATIONS = [
   "All Locations",
   "Lalbagh",
@@ -14,7 +17,9 @@ const LOCATIONS = [
   "Gandhi Nagar",
 ];
 
-
+/* -------------------------------------------------------------------------- */
+/* 🧭 Navbar Component                                                        */
+/* -------------------------------------------------------------------------- */
 const Navbar = ({ onSaleClick }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -24,8 +29,6 @@ const Navbar = ({ onSaleClick }) => {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
-
-  
 
   return (
     <header
@@ -49,15 +52,19 @@ const Navbar = ({ onSaleClick }) => {
         </div>
 
         <nav className="hidden md:flex items-center space-x-6">
-          
-
-          {/* Bike for Sale button */}
           <button
             onClick={onSaleClick}
             className="ml-4 bg-gradient-to-r from-[#0F172A] to-sky-600 text-white px-4 py-2 rounded-lg font-semibold shadow-md animate-pulse hover:from-[#1E293B] hover:to-sky-500 transition"
           >
             Bike for Sale
           </button>
+          <a
+            href="tel:6202673708"
+            className="flex items-center gap-2 bg-sky-600 text-white px-4 py-2 rounded-lg font-semibold shadow-md hover:bg-sky-700 transition"
+          >
+            <Phone className="w-4 h-4" />
+            Contact Us
+          </a>
         </nav>
 
         <button
@@ -69,15 +76,6 @@ const Navbar = ({ onSaleClick }) => {
 
         {isMenuOpen && (
           <div className="absolute top-16 left-0 w-full bg-white/90 backdrop-blur-md border-t border-gray-100 p-4 md:hidden animate-slideDown">
-            {navLinks.map((link) => (
-              <a
-                key={link.name}
-                href={link.href}
-                className="block text-gray-800 font-medium py-2 hover:text-sky-600"
-              >
-                {link.name}
-              </a>
-            ))}
             <button
               onClick={() => {
                 onSaleClick();
@@ -94,6 +92,9 @@ const Navbar = ({ onSaleClick }) => {
   );
 };
 
+/* -------------------------------------------------------------------------- */
+/* 🔍 Search Widget                                                           */
+/* -------------------------------------------------------------------------- */
 const SearchWidget = () => {
   const navigate = useNavigate();
   const today = new Date().toISOString().split("T")[0];
@@ -105,12 +106,31 @@ const SearchWidget = () => {
   const [pickupLocation, setPickupLocation] = useState("");
   const [error, setError] = useState("");
 
-  const pickupTimeRef = useRef(null);
-  const dropoffDateRef = useRef(null);
-  const dropoffTimeRef = useRef(null);
+  /* ---------------------------------------------------------------------- */
+  /* 🕓 Time Restrictions (24-hr format)                                   */
+  /* ---------------------------------------------------------------------- */
+  useEffect(() => {
+    const now = new Date();
+    const todayStr = now.toISOString().split("T")[0];
 
-  const openPicker = (ref) => ref?.current?.showPicker?.();
+    // Default earliest pickup time
+    let minPickup = "08:00";
 
+    // If booking today → 1 hour from now
+    if (pickupDate === todayStr) {
+      const nextHour = new Date(now.getTime() + 60 * 60 * 1000);
+      const hrs = nextHour.getHours().toString().padStart(2, "0");
+      const mins = nextHour.getMinutes().toString().padStart(2, "0");
+      minPickup = `${hrs}:${mins}`;
+    }
+
+    if (pickupTime && pickupTime < minPickup) setPickupTime(minPickup);
+    if (dropoffTime && dropoffTime > "23:30") setDropoffTime("23:30");
+  }, [pickupDate, pickupTime, dropoffTime]);
+
+  /* ---------------------------------------------------------------------- */
+  /* ✅ Validation + Navigation                                             */
+  /* ---------------------------------------------------------------------- */
   const validate = () => {
     if (!pickupLocation) return "Please select a pickup location.";
     if (!pickupDate || !pickupTime) return "Please select pickup date & time.";
@@ -133,6 +153,7 @@ const SearchWidget = () => {
       setTimeout(() => setError(""), 2500);
       return;
     }
+
     const query = new URLSearchParams({
       city: pickupLocation,
       pickupDate,
@@ -140,118 +161,227 @@ const SearchWidget = () => {
       pickupTime,
       dropoffTime,
     }).toString();
+
     navigate(`/vehicles?${query}`);
   };
 
+  /* ---------------------------------------------------------------------- */
+  /* 🖥️ Desktop + 📱 Mobile (shifted lower in mobile)                       */
+  /* ---------------------------------------------------------------------- */
   return (
-    <div className="relative z-20 bg-white/95 backdrop-blur-xl border border-sky-200 shadow-lg rounded-xl p-5 w-full max-w-md mx-auto text-black transition-all hover:shadow-xl hover:scale-[1.01]">
-      <h2 className="text-[16px] font-bold mb-4 flex items-center justify-center text-sky-700">
-        <Search className="w-5 h-5 mr-2 text-sky-600" /> Find Your Perfect Ride
-      </h2>
+    <>
+      {/* Desktop */}
+      <div className="hidden md:block relative z-20 bg-white/95 backdrop-blur-xl border border-sky-200 shadow-lg rounded-xl p-5 w-full max-w-md mx-auto text-black transition-all hover:shadow-xl hover:scale-[1.01]">
+        <h2 className="text-[16px] font-bold mb-4 flex items-center justify-center text-sky-700">
+          <Search className="w-5 h-5 mr-2 text-sky-600" /> Find Your Perfect Ride
+        </h2>
 
-      {error && (
-        <div className="mb-3 bg-red-100 border border-red-400 text-red-700 px-3 py-2 rounded-md text-xs animate-pulse">
-          {error}
-        </div>
-      )}
+        {error && (
+          <div className="mb-3 bg-red-100 border border-red-400 text-red-700 px-3 py-2 rounded-md text-xs animate-pulse">
+            {error}
+          </div>
+        )}
 
-      <div className="space-y-4 text-[15px]">
-        <div>
-          <label className="block text-xs font-semibold text-gray-700 mb-1">
-            Pickup Location
-          </label>
+        <div className="space-y-4 text-[15px]">
           <select
             value={pickupLocation}
             onChange={(e) => setPickupLocation(e.target.value)}
-            className="w-full p-3 rounded-md bg-gray-100 focus:ring-2 focus:ring-sky-400 focus:bg-white transition-all"
+            className="w-full p-3 rounded-md bg-gray-100 focus:ring-2 focus:ring-sky-400 focus:bg-white transition-all cursor-pointer"
           >
-            <option value="">Select a location</option>
+            <option value="">Pickup Location</option>
             {LOCATIONS.map((loc) => (
-              <option key={loc} value={loc}>
-                {loc}
-              </option>
+              <option key={loc}>{loc}</option>
             ))}
           </select>
-        </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">
-              Pickup Date
-            </label>
-            <input
-              type="date"
-              value={pickupDate}
-              min={today}
-              onChange={(e) => {
-                setPickupDate(e.target.value);
-                setTimeout(() => openPicker(pickupTimeRef), 150);
-              }}
-              className="w-full p-3 rounded-md bg-gray-100 focus:ring-2 focus:ring-sky-400 focus:bg-white transition-all"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">
-              Pickup Time
-            </label>
-            <input
-              type="time"
-              ref={pickupTimeRef}
-              value={pickupTime}
-              min="08:30"
-              max="23:30"
-              onChange={(e) => setPickupTime(e.target.value)}
-              className="w-full p-3 rounded-md bg-gray-100 focus:ring-2 focus:ring-sky-400 focus:bg-white transition-all"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">
-              Drop-off Date
-            </label>
-            <input
-              type="date"
-              ref={dropoffDateRef}
-              value={dropoffDate}
-              min={pickupDate}
-              onChange={(e) => setDropoffDate(e.target.value)}
-              className="w-full p-3 rounded-md bg-gray-100 focus:ring-2 focus:ring-sky-400 focus:bg-white transition-all"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">
-              Drop-off Time
-            </label>
-            <input
-              type="time"
-              ref={dropoffTimeRef}
-              value={dropoffTime}
-              min="08:30"
-              max="23:30"
-              onChange={(e) => setDropoffTime(e.target.value)}
-              className="w-full p-3 rounded-md bg-gray-100 focus:ring-2 focus:ring-sky-400 focus:bg-white transition-all"
-            />
-          </div>
-        </div>
+          <div className="grid grid-cols-2 gap-3">
+            {/* Pickup Date */}
+            <div>
+              <label className="block text-sm font-semibold mb-1 text-gray-700">
+                Pickup Date
+              </label>
+              <input
+                type="date"
+                min={today}
+                value={pickupDate}
+                onChange={(e) => setPickupDate(e.target.value)}
+                onFocus={(e) => e.target.showPicker?.()}
+                className="p-3 rounded-md bg-gray-100 focus:ring-2 focus:ring-sky-400 focus:bg-white w-full cursor-pointer"
+              />
+            </div>
 
-        <button
-          onClick={handleSearch}
-          className="w-full py-3 mt-2 bg-sky-600 text-white text-[15px] font-semibold rounded-md hover:bg-sky-700 hover:scale-[1.05] focus:ring-2 focus:ring-sky-400 transition-transform shadow-md"
-        >
-          Search Bikes
-        </button>
+            {/* Pickup Time */}
+            <div>
+              <label className="block text-sm font-semibold mb-1 text-gray-700">
+                Pickup Time
+              </label>
+              <input
+                type="time"
+                value={pickupTime}
+                onChange={(e) => setPickupTime(e.target.value)}
+                onFocus={(e) => e.target.showPicker?.()}
+                min={
+                  pickupDate === today
+                    ? new Date(Date.now() + 3600000)
+                        .toISOString()
+                        .slice(11, 16)
+                    : "08:00"
+                }
+                max="23:30"
+                className="p-3 rounded-md bg-gray-100 focus:ring-2 focus:ring-sky-400 focus:bg-white w-full cursor-pointer"
+              />
+            </div>
+
+            {/* Drop-off Date */}
+            <div>
+              <label className="block text-sm font-semibold mb-1 text-gray-700">
+                Drop-off Date
+              </label>
+              <input
+                type="date"
+                min={pickupDate}
+                value={dropoffDate}
+                onChange={(e) => setDropoffDate(e.target.value)}
+                onFocus={(e) => e.target.showPicker?.()}
+                className="p-3 rounded-md bg-gray-100 focus:ring-2 focus:ring-sky-400 focus:bg-white w-full cursor-pointer"
+              />
+            </div>
+
+            {/* Drop-off Time */}
+            <div>
+              <label className="block text-sm font-semibold mb-1 text-gray-700">
+                Drop-off Time
+              </label>
+              <input
+                type="time"
+                value={dropoffTime}
+                onChange={(e) => setDropoffTime(e.target.value)}
+                onFocus={(e) => e.target.showPicker?.()}
+                min="08:00"
+                max="23:30"
+                className="p-3 rounded-md bg-gray-100 focus:ring-2 focus:ring-sky-400 focus:bg-white w-full cursor-pointer"
+              />
+            </div>
+          </div>
+
+          <button
+            onClick={handleSearch}
+            className="w-full py-3 mt-2 bg-sky-600 text-white text-[15px] font-semibold rounded-md hover:bg-sky-700 hover:scale-[1.05] transition-transform shadow-md"
+          >
+            Search Bikes
+          </button>
+        </div>
       </div>
-    </div>
+
+      {/* Mobile */}
+      <div className="md:hidden w-full max-w-sm mx-auto mt-20 px-4 text-white">
+        {error && (
+          <p className="text-xs bg-red-500/60 text-white text-center py-1 rounded mb-2">
+            {error}
+          </p>
+        )}
+        <div className="flex flex-col space-y-3">
+          <select
+            value={pickupLocation}
+            onChange={(e) => setPickupLocation(e.target.value)}
+            className="bg-transparent border border-white/60 rounded-md px-3 py-2 text-sm placeholder-white focus:bg-white/20 focus:border-sky-300 outline-none cursor-pointer"
+          >
+            <option value="">Pickup Location</option>
+            {LOCATIONS.map((loc) => (
+              <option key={loc}>{loc}</option>
+            ))}
+          </select>
+
+          <div className="grid grid-cols-2 gap-2">
+            {/* Pickup Date */}
+            <div>
+              <label className="block text-xs mb-1 text-white/90">
+                Pickup Date
+              </label>
+              <input
+                type="date"
+                min={today}
+                value={pickupDate}
+                onChange={(e) => setPickupDate(e.target.value)}
+                onFocus={(e) => e.target.showPicker?.()}
+                className="bg-transparent border border-white/60 rounded-md px-2 py-2 text-sm text-white focus:bg-white/20 outline-none w-full cursor-pointer"
+              />
+            </div>
+
+            {/* Pickup Time */}
+            <div>
+              <label className="block text-xs mb-1 text-white/90">
+                Pickup Time
+              </label>
+              <input
+                type="time"
+                value={pickupTime}
+                onChange={(e) => setPickupTime(e.target.value)}
+                onFocus={(e) => e.target.showPicker?.()}
+                min={
+                  pickupDate === today
+                    ? new Date(Date.now() + 3600000)
+                        .toISOString()
+                        .slice(11, 16)
+                    : "08:00"
+                }
+                max="23:30"
+                className="bg-transparent border border-white/60 rounded-md px-2 py-2 text-sm text-white focus:bg-white/20 outline-none w-full cursor-pointer"
+              />
+            </div>
+
+            {/* Drop-off Date */}
+            <div>
+              <label className="block text-xs mb-1 text-white/90">
+                Drop-off Date
+              </label>
+              <input
+                type="date"
+                min={pickupDate}
+                value={dropoffDate}
+                onChange={(e) => setDropoffDate(e.target.value)}
+                onFocus={(e) => e.target.showPicker?.()}
+                className="bg-transparent border border-white/60 rounded-md px-2 py-2 text-sm text-white focus:bg-white/20 outline-none w-full cursor-pointer"
+              />
+            </div>
+
+            {/* Drop-off Time */}
+            <div>
+              <label className="block text-xs mb-1 text-white/90">
+                Drop-off Time
+              </label>
+              <input
+                type="time"
+                value={dropoffTime}
+                onChange={(e) => setDropoffTime(e.target.value)}
+                onFocus={(e) => e.target.showPicker?.()}
+                min="08:00"
+                max="23:30"
+                className="bg-transparent border border-white/60 rounded-md px-2 py-2 text-sm text-white focus:bg-white/20 outline-none w-full cursor-pointer"
+              />
+            </div>
+          </div>
+
+          <button
+            onClick={handleSearch}
+            className="w-full bg-sky-600/80 hover:bg-sky-700 text-white py-2 rounded-md font-medium text-sm transition"
+          >
+            Search Bikes
+          </button>
+        </div>
+      </div>
+    </>
   );
 };
 
-
+/* -------------------------------------------------------------------------- */
+/* 🏍️ Landing Page Component                                                  */
+/* -------------------------------------------------------------------------- */
 const LandingPage = () => {
   const [salePreview, setSalePreview] = useState([]);
   const [selectedSaleBike, setSelectedSaleBike] = useState(null);
   const [imageModalSrc, setImageModalSrc] = useState(null);
   const collectionsRef = useRef(null);
-
-  const imageBase = import.meta.env.VITE_API_URL.replace("/api", "");
 
   useEffect(() => {
     axios
@@ -267,7 +397,7 @@ const LandingPage = () => {
     <div className="font-[Poppins] text-gray-700 bg-white">
       <Navbar onSaleClick={scrollToCollections} />
 
-      {/* HERO */}
+      {/* HERO SECTION */}
       <section className="relative min-h-[100vh] flex flex-col justify-center items-center text-center overflow-hidden px-6">
         <div
           className="absolute inset-0 bg-cover bg-center"
@@ -276,7 +406,10 @@ const LandingPage = () => {
         <div className="absolute inset-0 bg-gradient-to-t from-[#0F172A]/70 via-sky-900/40 to-transparent" />
         <div className="relative z-10 mt-[-4rem]">
           <h1 className="text-4xl sm:text-5xl md:text-7xl font-extrabold text-white drop-shadow-lg mb-4 tracking-wide">
-            YOUR JOURNEY <span className="text-sky-500">OUR BIKES</span>
+            YOUR JOURNEY{" "}
+            <span className="bg-gradient-to-r from-[#0F172A] to-sky-600 bg-clip-text text-transparent">
+              OUR BIKES
+            </span>
           </h1>
           <p className="text-base sm:text-lg md:text-xl font-medium text-[#0F172A] max-w-2xl mx-auto bg-white/70 px-3 py-1 rounded-md shadow-sm">
             Explore Bangalore with comfort, power, and elegance.
@@ -285,7 +418,6 @@ const LandingPage = () => {
 
         <div className="relative z-20 w-full flex flex-col justify-center items-center mt-9 space-y-2">
           <SearchWidget />
-          {/* Added new mobile-only button below search */}
           <div className="block md:hidden">
             <button
               onClick={scrollToCollections}
@@ -308,7 +440,7 @@ const LandingPage = () => {
         </svg>
       </section>
 
-      {/* OUR COLLECTIONS SECTION (fully restored) */}
+      {/* OUR COLLECTIONS SECTION */}
       <section
         ref={collectionsRef}
         className="relative bg-[#E0F2FE] py-20 px-8 text-center overflow-hidden"
@@ -331,47 +463,34 @@ const LandingPage = () => {
           </h2>
           <div className="mx-auto mt-3 w-24 h-1 rounded bg-sky-600" />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10 mt-12 max-w-6xl mx-auto">
+          <div className="mt-8 mb-10 flex justify-center">
+            <button
+              onClick={() => (window.location.href = "/sale-bikes")}
+              className="group relative inline-flex items-center justify-center px-8 py-3 overflow-hidden rounded-full bg-gradient-to-r from-[#0F172A] to-sky-600 text-white font-semibold shadow-md transition-all hover:shadow-lg hover:scale-[1.05]"
+            >
+              <span className="absolute inset-0 bg-gradient-to-r from-sky-500 to-cyan-400 opacity-0 group-hover:opacity-100 transition-all duration-300"></span>
+              <span className="relative flex items-center gap-2">
+                <Eye className="w-5 h-5 text-white" />
+                View All Bikes
+              </span>
+            </button>
+          </div>
+
+          {/* ✅ Cards replaced with SaleBikeCard */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10 mt-6 max-w-6xl mx-auto">
             {salePreview.length === 0 ? (
               <p className="col-span-full text-gray-600">
                 No bikes available right now.
               </p>
             ) : (
-              salePreview.map((b) => {
-                const img = b.images?.[0] && `${imageBase}${b.images[0]}`;
-                return (
-                  <div
-                    key={b._id}
-                    className="relative bg-white rounded-2xl p-6 shadow-md hover:-translate-y-3 hover:shadow-lg transition-transform duration-300"
-                  >
-                    <img
-                      src={img || "https://placehold.co/400x300?text=No+Image"}
-                      alt={b.modelName}
-                      className="w-full h-48 object-contain bg-sky-50 p-4 rounded-lg mb-4 cursor-pointer"
-                      onClick={() => setImageModalSrc(img)}
-                    />
-                    <h3 className="text-xl font-semibold text-sky-800">
-                      {b.brand} {b.modelName}
-                    </h3>
-                    <p className="text-gray-600 mb-4">₹{b.price}</p>
-                    <div className="flex items-center gap-3 justify-center">
-                      <button
-                        onClick={() => setSelectedSaleBike(b)}
-                        className="bg-sky-600 text-white py-2 px-5 rounded-lg font-semibold hover:bg-sky-700 hover:scale-105 transition-all"
-                      >
-                        <Eye className="inline w-4 h-4 mr-1" />
-                        View Details
-                      </button>
-                      <a
-                        href="tel:6202673708"
-                        className="border border-sky-300 text-sky-700 py-2 px-5 rounded-lg font-semibold hover:bg-sky-50"
-                      >
-                        Contact
-                      </a>
-                    </div>
-                  </div>
-                );
-              })
+              salePreview.map((b) => (
+                <SaleBikeCard
+                  key={b._id}
+                  bike={b}
+                  onView={(bike) => setSelectedSaleBike(bike)}
+                  onImageClick={(img) => setImageModalSrc(img)}
+                />
+              ))
             )}
           </div>
         </div>
@@ -398,71 +517,12 @@ const LandingPage = () => {
 
       {/* FOOTER */}
       <footer className="bg-[#0F172A] text-white py-8 text-center">
-        <p className="text-sm">&copy; 2024 NewBikeWorld. All rights reserved.</p>
+        <p className="text-sm">
+          &copy; 2024 NewBikeWorld. All rights reserved.
+        </p>
       </footer>
 
-      {/* MODALS */}
-      {selectedSaleBike && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl relative p-6">
-            <button
-              onClick={() => setSelectedSaleBike(null)}
-              className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <h2 className="text-2xl font-bold mb-3 text-blue-700">
-              {selectedSaleBike.modelName}
-            </h2>
-            <div className="space-y-2 text-sm">
-              <p>
-                <strong>Brand:</strong> {selectedSaleBike.brand}
-              </p>
-              <p>
-                <strong>Year:</strong> {selectedSaleBike.year || "—"}
-              </p>
-              <p>
-                <strong>Price:</strong> ₹{selectedSaleBike.price}
-              </p>
-              <p>
-                <strong>Description:</strong>{" "}
-                {selectedSaleBike.description || "No description available"}
-              </p>
-            </div>
-            {selectedSaleBike.images?.length > 0 && (
-              <div className="grid grid-cols-2 gap-2 mt-4">
-                {selectedSaleBike.images.map((img, i) => {
-                  const src = `${imageBase}${img}`;
-                  return (
-                    <img
-                      key={i}
-                      src={src}
-                      alt={`bike-${i}`}
-                      className="w-full h-32 object-cover rounded-lg border cursor-pointer"
-                      onClick={() => setImageModalSrc(src)}
-                    />
-                  );
-                })}
-              </div>
-            )}
-            <div className="mt-4 flex gap-3">
-              <a
-                href="tel:6202673708"
-                className="bg-sky-600 text-white py-2 px-5 rounded-lg font-semibold hover:bg-sky-700 hover:scale-105 transition-all"
-              >
-                Contact
-              </a>
-              <button
-                onClick={() => setSelectedSaleBike(null)}
-                className="border border-gray-300 py-2 px-5 rounded-lg hover:bg-gray-50"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* IMAGE MODAL */}
       {imageModalSrc && (
         <div
           className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4"
@@ -473,14 +533,14 @@ const LandingPage = () => {
               e.stopPropagation();
               setImageModalSrc(null);
             }}
-            className="absolute top-6 right-6 text-white"
+            className="absolute top-6 right-6 text-white hover:text-gray-300"
           >
             <X className="w-7 h-7" />
           </button>
           <img
             src={imageModalSrc}
-            alt="Zoomed"
-            className="max-h-[90vh] w-auto rounded-lg shadow-lg"
+            alt="Zoomed Bike"
+            className="max-h-[90vh] w-auto rounded-lg shadow-lg object-contain transition-all"
           />
         </div>
       )}

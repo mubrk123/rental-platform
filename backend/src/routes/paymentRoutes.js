@@ -1,32 +1,16 @@
-// paymentRoutes.js
 import express from "express";
 import crypto from "crypto";
-import multer from "multer";
 import path from "path";
 import fs from "fs";
 import Razorpay from "razorpay";
 import Booking from "../models/Booking.js";
-import Vehicle from "../models/Vehicle.js"; // ✅ added
-import { sendWhatsApp } from "../utils/notifyUser.js";
+import Vehicle from "../models/Vehicle.js";
+import { sendWhatsAppTemplate } from "../utils/notifyUser.js";
 import { sendEmail } from "../utils/sendEmail.js";
+import { upload, uploadToCloudinary} from "../utils/upload.js"; // ✅ Cloudinary upload
+import { pickupLocations } from "../utils/locationMap.js";
 
 const router = express.Router();
-
-/* ------------------------------------------------------------------
-   MULTER SETUP
------------------------------------------------------------------- */
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadPath = "uploads/documents";
-    if (!fs.existsSync(uploadPath)) fs.mkdirSync(uploadPath, { recursive: true });
-    cb(null, uploadPath);
-  },
-  filename: (req, file, cb) => {
-    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`;
-    cb(null, unique);
-  },
-});
-const upload = multer({ storage });
 
 /* ------------------------------------------------------------------
    CREATE RAZORPAY ORDER
@@ -64,7 +48,6 @@ router.post("/create-order", async (req, res) => {
   }
 });
 
-
 /* ------------------------------------------------------------------
    VERIFY PAYMENT + CREATE BOOKING + SEND EMAIL/WHATSAPP
 ------------------------------------------------------------------ */
@@ -95,46 +78,20 @@ router.post(
         .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
         .update(razorpay_order_id + "|" + razorpay_payment_id)
         .digest("hex");
-
-      if (expected !== razorpay_signature) {
-        console.error("❌ Invalid payment signature");
+      if (expected !== razorpay_signature)
         return res.status(400).json({ success: false, message: "Invalid signature" });
-      }
 
-      // ✅ Prevent duplicate booking for same payment
+      // ✅ Prevent duplicates
       const existing = await Booking.findOne({ paymentId: razorpay_payment_id });
-      if (existing) {
-        return res.json({ success: true, booking: existing });
-      }
+      if (existing) return res.json({ success: true, booking: existing });
 
-      // ✅ Validate essential data
-      if (!userId || !vehicleId || !name || !pickupDate || !dropoffDate) {
-        return res.status(400).json({ success: false, message: "Missing required booking fields" });
-      }
-
-      // ✅ File uploads
+      // ✅ Upload documents to Cloudinary
       const aadhaarPath = req.files?.aadhaarDocument
-        ? `/uploads/documents/${req.files.aadhaarDocument[0].filename}`
+        ? await uploadToCloudinary(req.files.aadhaarDocument[0], "documents")
         : null;
       const licensePath = req.files?.licenseDocument
-        ? `/uploads/documents/${req.files.licenseDocument[0].filename}`
+        ? await uploadToCloudinary(req.files.licenseDocument[0], "documents")
         : null;
-
-      // compute days + amount (we trust backend calculation)
-      const start = new Date(pickupDate);
-      const end = new Date(dropoffDate);
-      const days = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
-
-      // Amount: try to read from order notes if available (safer), else 0
-      // (Razorpay order was created earlier on frontend request)
-      // We'll set amount to 0 if not provided; you may enrich this later.
-      let amount = 0;
-      try {
-        // try parse amount from notes if needed (optional)
-        // amount stays 0 unless you want to pass it explicitly
-      } catch (e) {
-        // ignore
-      }
 
       // ✅ Save booking
       const newBooking = new Booking({
@@ -144,73 +101,62 @@ router.post(
         email,
         phoneNumber,
         city,
-        pickupDate: new Date(pickupDate),
-        dropoffDate: new Date(dropoffDate),
+        pickupDate,
+        dropoffDate,
         aadhaarDocument: aadhaarPath,
         licenseDocument: licensePath,
         paymentId: razorpay_payment_id,
         orderId: razorpay_order_id,
         status: "paid",
-        days,
-        amount,
       });
-
       await newBooking.save();
 
-      // ✅ Update vehicle's bookedQuantity (increment)
-      try {
-        const vehicle = await Vehicle.findById(vehicleId);
-        if (vehicle) {
-          vehicle.bookedQuantity = Number(vehicle.bookedQuantity || 0) + 1;
-          // Ensure bookedQuantity doesn't exceed totalQuantity
-          if (vehicle.bookedQuantity > (vehicle.totalQuantity || 0)) {
-            // allow it but cap to totalQuantity to avoid negatives later
-            vehicle.bookedQuantity = vehicle.totalQuantity || vehicle.bookedQuantity;
-          }
-          await vehicle.save();
-        } else {
-          console.warn("⚠️ Vehicle not found for booking update:", vehicleId);
-        }
-      } catch (err) {
-        console.error("⚠️ Failed to increment vehicle.bookedQuantity:", err);
+      // ✅ Update vehicle stock
+      const vehicle = await Vehicle.findById(vehicleId);
+      if (vehicle) {
+        vehicle.bookedQuantity = Number(vehicle.bookedQuantity || 0) + 1;
+        await vehicle.save();
       }
 
-      // ✅ Send WhatsApp
-      const message = `
-🚲 *Booking Confirmed!*
+      // ✅ Send WhatsApp Booking Confirmation Template
+// ✅ Send WhatsApp Booking Confirmation Template
+try {
+  const locKey = city?.trim().toLowerCase();
+  const locData = pickupLocations[locKey] || {};
 
-Name: ${name}
-City: ${city}
-Pickup: ${pickupDate}
-Dropoff: ${dropoffDate}
-Vehicle ID: ${vehicleId}
-      `;
-      if (phoneNumber) {
-        try {
-          await sendWhatsApp(phoneNumber, message);
-        } catch (err) {
-          console.error("WhatsApp send error:", err);
-        }
-      }
+  await sendWhatsAppTemplate(phoneNumber, "BOOKING_CONFIRMATION", {
+    1: name,
+    2: pickupDate,
+    3: dropoffDate,
+    4: city,
+    5: `${locData.address || "Pickup Counter"} 📍 ${locData.link || ""}`,
+    6: "+91" + phoneNumber,
+    7: vehicle?.modelName || "our bike",
+  });
 
-      // ✅ Send Email (Gmail SMTP)
-      if (email) {
-  try {
-    const vehicle = await Vehicle.findById(vehicleId);
-    await sendEmail(email, {
-      name,
-      bookingId: newBooking._id,
-      vehicleId,
-      vehicleModel: vehicle?.modelName || "N/A",
-      city,
-      pickupDate,
-      dropoffDate,
-      phoneNumber,
-    });
-  } catch (err) {
-    console.error("❌ Email send error:", err);
-  }
+  console.log(`✅ Booking confirmation WhatsApp sent to ${phoneNumber}`);
+} catch (err) {
+  console.warn("⚠️ Booking confirmation message failed:", err.message);
 }
+
+
+      // ✅ Send Email confirmation
+      if (email) {
+        try {
+          await sendEmail(email, {
+            name,
+            bookingId: newBooking._id,
+            city,
+            pickupDate,
+            dropoffDate,
+            phoneNumber,
+          });
+          console.log(`✅ Email sent successfully to ${email}`);
+        } catch (err) {
+          console.warn("⚠️ Email sending failed:", err.message);
+        }
+      }
+
 
       res.json({ success: true, booking: newBooking });
     } catch (err) {

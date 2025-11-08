@@ -1,12 +1,11 @@
-// routes/otpRoutes.js
 import express from "express";
-import { sendWhatsApp } from "../utils/notifyUser.js";
+import { sendWhatsAppTemplate } from "../utils/notifyUser.js";
 
 const router = express.Router();
 const otpStore = new Map();
 
 /**
- * Send OTP via WhatsApp
+ * Send OTP via WhatsApp Template
  */
 router.post("/send", async (req, res) => {
   try {
@@ -17,9 +16,9 @@ router.post("/send", async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000);
     otpStore.set(phoneNumber, { otp, createdAt: Date.now() });
 
-    const message = `🔐 Your OTP for *NewBikeWorld* is *${otp}*.\n\nThis code will expire in 5 minutes.`;
+    // ✅ Send OTP using Twilio template
+    await sendWhatsAppTemplate(phoneNumber, "OTP", { 1: otp });
 
-    await sendWhatsApp(phoneNumber, message);
 
     res.json({ success: true, message: "OTP sent on WhatsApp successfully" });
   } catch (error) {
@@ -39,7 +38,7 @@ router.post("/verify", (req, res) => {
       return res.status(400).json({ success: false, message: "OTP expired or invalid" });
 
     const record = otpStore.get(phoneNumber);
-    const isExpired = Date.now() - record.createdAt > 5 * 60 * 1000; // 5 minutes expiry
+    const isExpired = Date.now() - record.createdAt > 5 * 60 * 1000;
 
     if (isExpired) {
       otpStore.delete(phoneNumber);

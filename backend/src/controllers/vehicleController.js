@@ -1,18 +1,12 @@
-// 📁 backend/src/controllers/vehicleController.js
-
 import Vehicle from "../models/Vehicle.js";
 import path from "path";
+import { cloudinary } from "../utils/upload.js";
 
 /**
  * ✅ Helper: formats vehicle image URLs and calculates available count
  */
 const formatVehicleData = (req, v) => {
-  const baseUrl = `${req.protocol}://${req.get("host")}`;
-  const images = v.images?.map((img) =>
-    img.startsWith("uploads/")
-      ? `${baseUrl}/${img.replace(/\\/g, "/")}`
-      : img
-  );
+  const images = v.images?.map((img) => img);
   const availableCount = Math.max(
     0,
     (v.totalQuantity || 0) - (v.bookedQuantity || 0)
@@ -29,9 +23,8 @@ export const createVehicle = async (req, res) => {
     const { modelName, brand, rentPerDay, totalQuantity, city, type } = req.body;
     const normalizedType = type.toLowerCase();
 
-    const imagePaths = req.files
-      ? req.files.map((file) => `uploads/vehicles/${file.filename}`)
-      : [];
+    // ✅ Use Cloudinary URLs
+    const imagePaths = req.files ? req.files.map((file) => file.path) : [];
 
     const newVehicle = await Vehicle.create({
       modelName,
@@ -61,7 +54,6 @@ export const createVehicle = async (req, res) => {
 
 /**
  * ✅ GET /api/vehicles
- * List all vehicles (with optional city filter)
  */
 export const listVehicles = async (req, res) => {
   try {
@@ -69,14 +61,8 @@ export const listVehicles = async (req, res) => {
     const query = city ? { "location.city": city } : {};
 
     const vehicles = await Vehicle.find(query).lean();
-
     const formatted = vehicles.map((v) => {
-      const baseUrl = `${req.protocol}://${req.get("host")}`;
-      const images = v.images?.map((img) =>
-        img.startsWith("uploads/")
-          ? `${baseUrl}/${img.replace(/\\/g, "/")}`
-          : img
-      );
+      const images = v.images?.map((img) => img);
       const availableCount = Math.max(
         0,
         (v.totalQuantity || 0) - (v.bookedQuantity || 0)
@@ -97,7 +83,6 @@ export const listVehicles = async (req, res) => {
 
 /**
  * ✅ GET /api/vehicles/:id
- * Fetch a single vehicle by ID
  */
 export const getVehicleById = async (req, res) => {
   try {
@@ -107,7 +92,6 @@ export const getVehicleById = async (req, res) => {
         success: false,
         message: "Vehicle not found",
       });
-
     const formatted = formatVehicleData(req, v);
     res.json(formatted);
   } catch (err) {
@@ -122,17 +106,85 @@ export const getVehicleById = async (req, res) => {
 
 /**
  * ✅ DELETE /api/vehicles/:id
- * Delete a vehicle (admin only)
  */
 export const deleteVehicle = async (req, res) => {
   try {
     const { id } = req.params;
+    const vehicle = await Vehicle.findById(id);
+    if (!vehicle)
+      return res.status(404).json({ success: false, message: "Vehicle not found" });
+
+    // ✅ Delete images from Cloudinary
+    if (vehicle.images?.length) {
+      for (const url of vehicle.images) {
+        try {
+          const parts = url.split("/");
+          const publicId = parts.slice(-2).join("/").split(".")[0];
+          await cloudinary.uploader.destroy(publicId);
+        } catch (err) {
+          console.warn("⚠️ Failed to delete Cloudinary file:", err.message);
+        }
+      }
+    }
+
     await Vehicle.findByIdAndDelete(id);
-    res.json({ success: true, message: "Vehicle deleted successfully" });
+    res.json({ success: true, message: "✅ Vehicle deleted successfully" });
   } catch (error) {
     console.error("Error deleting vehicle:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "Error deleting vehicle" });
+    res.status(500).json({ success: false, message: "Error deleting vehicle" });
+  }
+};
+/**
+ * ✅ PUT /api/vehicles/:id
+ * Update vehicle details and images
+ */
+export const updateVehicle = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { modelName, brand, rentPerDay, totalQuantity, city, type } = req.body;
+
+    const vehicle = await Vehicle.findById(id);
+    if (!vehicle)
+      return res.status(404).json({
+        success: false,
+        message: "Vehicle not found",
+      });
+
+    // ✅ Update core details
+    vehicle.modelName = modelName || vehicle.modelName;
+    vehicle.brand = brand || vehicle.brand;
+    vehicle.rentPerDay = rentPerDay || vehicle.rentPerDay;
+    vehicle.totalQuantity = totalQuantity || vehicle.totalQuantity;
+    vehicle.type = type ? type.toLowerCase() : vehicle.type;
+    vehicle.location = { city: city || vehicle.location?.city };
+
+    // ✅ Handle new image uploads (if any)
+    if (req.files && req.files.length > 0) {
+      const newImagePaths = req.files.map((file) => file.path);
+      vehicle.images = newImagePaths;
+    }
+
+    await vehicle.save();
+
+    const formatted = {
+      ...vehicle.toObject(),
+      availableCount: Math.max(
+        0,
+        (vehicle.totalQuantity || 0) - (vehicle.bookedQuantity || 0)
+      ),
+    };
+
+    res.json({
+      success: true,
+      message: "✅ Vehicle updated successfully!",
+      vehicle: formatted,
+    });
+  } catch (error) {
+    console.error("Error updating vehicle:", error);
+    res.status(500).json({
+      success: false,
+      message: "❌ Error updating vehicle",
+      error: error.message,
+    });
   }
 };

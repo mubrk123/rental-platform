@@ -41,12 +41,17 @@ const UploadSaleBike = () => {
       Object.keys(form).forEach((k) => data.append(k, form[k]));
       images.forEach((img) => data.append("images", img));
 
-      const res = await axios.post(`${import.meta.env.VITE_API_URL}/sale-bikes`, data, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-          "x-admin-secret": import.meta.env.VITE_ADMIN_SECRET,
-        },
-      });
+      const res = await axios.post(
+  `${import.meta.env.VITE_API_URL}/sale-bikes`,
+  data,
+  {
+    headers: {
+      "Content-Type": "multipart/form-data",
+      "Authorization": `Bearer ${localStorage.getItem("adminToken")}`,
+    },
+  }
+);
+
 
       if (res.data?.success) {
         setMessage("✅ Bike listed for sale successfully!");

@@ -1,55 +1,35 @@
-// backend/routes/saleBikeRoutes.js
 import express from "express";
-import multer from "multer";
-import path from "path";
-import fs from "fs";
 import SaleBike from "../models/SaleBike.js";
+import { upload, uploadToCloudinary, cloudinary } from "../utils/upload.js";
+import { verifyAdmin } from "../middleware/adminAuth.js"; // ✅ Use your existing named export
 
 const router = express.Router();
 
-// Multer storage for sale bike images
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadPath = "uploads/sale-bikes";
-    if (!fs.existsSync(uploadPath)) fs.mkdirSync(uploadPath, { recursive: true });
-    cb(null, uploadPath);
-  },
-  filename: (req, file, cb) => {
-    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`;
-    cb(null, unique);
-  },
-});
-const upload = multer({ storage });
-
-// ----------------------
-// Create new sale bike (admin only)
-// ----------------------
-router.post("/", upload.array("images", 10), async (req, res) => {
+/* -------------------------------------------------------------------------- */
+/* 🛠️  Create a new sale bike (Admin only)                                    */
+/* -------------------------------------------------------------------------- */
+router.post("/", verifyAdmin, upload.array("images", 10), async (req, res) => {
   try {
-    // simple admin guard
-    const adminSecret = req.headers["x-admin-secret"] || req.query.admin_secret;
-    if (adminSecret !== process.env.ADMIN_SECRET) {
-      return res.status(403).json({ success: false, message: "Unauthorized" });
-    }
-
     const { modelName, brand, price, description, year, mileage, condition, city } = req.body;
 
-    // Validation
     if (!modelName || !brand || !price) {
-      return res.status(400).json({ success: false, message: "Missing required fields (modelName, brand, price)" });
-    }
-
-    const files = req.files || [];
-    if (files.length < 3) {
-      // remove uploaded files (cleanup) if not enough images
-      files.forEach((f) => {
-        const p = path.join(process.cwd(), `uploads/sale-bikes/${f.filename}`);
-        if (fs.existsSync(p)) fs.unlinkSync(p);
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields (modelName, brand, price)",
       });
-      return res.status(400).json({ success: false, message: "Please upload at least 3 images." });
     }
 
-    const imagePaths = files.map((f) => `/uploads/sale-bikes/${f.filename}`);
+    // ✅ Cloudinary URLs (upload.js already configured)
+   // NEW:
+const imagePaths = await Promise.all(
+  req.files.map((f) => uploadToCloudinary(f.buffer, "sale-bikes"))
+);
+
+    if (imagePaths.length < 3) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Please upload at least 3 images." });
+    }
 
     const saleBike = new SaleBike({
       modelName,
@@ -61,6 +41,7 @@ router.post("/", upload.array("images", 10), async (req, res) => {
       condition: condition || "Used",
       city: city || "Unknown",
       images: imagePaths,
+      adminId: req.admin?.id, // ✅ From verifyAdmin decoded token
     });
 
     await saleBike.save();
@@ -71,12 +52,11 @@ router.post("/", upload.array("images", 10), async (req, res) => {
   }
 });
 
-// ----------------------
-// Get all sale bikes
-// ----------------------
+/* -------------------------------------------------------------------------- */
+/* 📋  Get all sale bikes (Public)                                            */
+/* -------------------------------------------------------------------------- */
 router.get("/", async (req, res) => {
   try {
-    // optional pagination
     const page = Math.max(1, Number(req.query.page) || 1);
     const limit = Math.max(6, Number(req.query.limit) || 24);
     const skip = (page - 1) * limit;
@@ -86,17 +66,16 @@ router.get("/", async (req, res) => {
       SaleBike.countDocuments(),
     ]);
 
-   res.json(bikes);
-
+    res.json({ success: true, total, bikes });
   } catch (err) {
     console.error("❌ sale-bikes fetch error:", err);
     res.status(500).json({ success: false, message: "Failed to fetch sale bikes" });
   }
 });
 
-// ----------------------
-// Get latest N (default 6)
-// ----------------------
+/* -------------------------------------------------------------------------- */
+/* 🆕  Get latest N sale bikes (Public)                                       */
+/* -------------------------------------------------------------------------- */
 router.get("/latest", async (req, res) => {
   try {
     const limit = Number(req.query.limit) || 6;
@@ -107,27 +86,64 @@ router.get("/latest", async (req, res) => {
     res.status(500).json({ success: false, message: "Failed to fetch latest sale bikes" });
   }
 });
-router.put("/:id", upload.array("newImages", 3), async (req, res) => {
-  const bike = await SaleBike.findById(req.params.id);
-  if (!bike) return res.status(404).json({ message: "Bike not found" });
 
-  const { existingImages } = req.body;
-  let updatedImages = [];
+/* -------------------------------------------------------------------------- */
+/* ✏️  Update sale bike (Admin only)                                          */
+/* -------------------------------------------------------------------------- */
+router.put("/:id", verifyAdmin, upload.array("newImages", 10), async (req, res) => {
+  try {
+    const bike = await SaleBike.findById(req.params.id);
+    if (!bike)
+      return res.status(404).json({ success: false, message: "Bike not found" });
 
-  if (existingImages) {
-    updatedImages = JSON.parse(existingImages);
+    const existingImages = req.body.existingImages
+      ? JSON.parse(req.body.existingImages)
+      : [];
+    const newImagePaths = req.files?.map((f) => f.path) || [];
+
+    bike.images = [...existingImages, ...newImagePaths];
+    Object.assign(bike, req.body);
+
+    await bike.save();
+    res.json({
+      success: true,
+      message: "✅ Sale bike updated successfully",
+      bike,
+    });
+  } catch (err) {
+    console.error("❌ sale-bikes update error:", err);
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to update sale bike" });
   }
-
-  if (req.files?.length) {
-    const newPaths = req.files.map((file) => `/uploads/${file.filename}`);
-    updatedImages = [...updatedImages, ...newPaths];
-  }
-
-  bike.images = updatedImages;
-  Object.assign(bike, req.body);
-  await bike.save();
-  res.json(bike);
 });
 
+/* -------------------------------------------------------------------------- */
+/* 🗑️  Delete sale bike (Admin only)                                          */
+/* -------------------------------------------------------------------------- */
+router.delete("/:id", verifyAdmin, async (req, res) => {
+  try {
+    const bike = await SaleBike.findById(req.params.id);
+    if (!bike)
+      return res.status(404).json({ success: false, message: "Bike not found" });
+
+    // 🧹 Delete Cloudinary images
+    for (const url of bike.images || []) {
+      try {
+        const parts = url.split("/");
+        const publicId = parts.slice(-2).join("/").split(".")[0];
+        await cloudinary.uploader.destroy(publicId);
+      } catch (err) {
+        console.warn("⚠️ Failed to delete Cloudinary file:", err.message);
+      }
+    }
+
+    await SaleBike.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: "✅ Sale bike deleted successfully" });
+  } catch (err) {
+    console.error("❌ sale-bikes delete error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
 
 export default router;

@@ -3,15 +3,12 @@ import { MapPin, Loader2 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 import Logo from "../assets/logo.jpg";
+import VehicleCard from "../components/VehicleCard"; // ✅ new component
 
 const Vehicles = () => {
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({
-    type: "",
-    brand: "",
-    sortBy: "",
-  });
+  const [filters, setFilters] = useState({ type: "", brand: "", sortBy: "" });
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -40,7 +37,6 @@ const Vehicles = () => {
     fetchVehicles();
   }, [city]);
 
-  // Refresh after successful booking (triggered by BookingSuccess)
   useEffect(() => {
     if (location.state?.refresh) fetchVehicles();
   }, [location.state]);
@@ -70,7 +66,7 @@ const Vehicles = () => {
 
   return (
     <div className="min-h-screen bg-[#F0F9FF]">
-      {/* Header */}
+      {/* HEADER */}
       <header className="bg-gradient-to-r from-sky-700 to-sky-500 text-white py-5 shadow-md">
         <div className="max-w-7xl mx-auto flex items-center justify-between px-6">
           <div className="flex items-center space-x-3">
@@ -78,6 +74,7 @@ const Vehicles = () => {
               src={Logo}
               alt="NewBikeWorld Logo"
               className="w-12 h-12 rounded-full shadow-md"
+              loading="lazy"
             />
             <div>
               <h1 className="text-2xl font-bold tracking-tight">
@@ -100,14 +97,13 @@ const Vehicles = () => {
         </div>
       </header>
 
-      {/* Main Layout */}
+      {/* MAIN LAYOUT */}
       <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-8 py-10 px-6">
-        {/* Sidebar Filter */}
+        {/* SIDEBAR */}
         <aside className="w-full lg:w-1/4 bg-white rounded-2xl shadow-md p-6 border border-sky-100">
           <h2 className="text-lg font-semibold text-sky-700 mb-4">
             🔍 Filter Your Ride
           </h2>
-
           <div className="space-y-5 text-sm text-gray-700">
             <div>
               <label className="font-semibold text-gray-800 mb-1 block">
@@ -155,7 +151,7 @@ const Vehicles = () => {
           </div>
         </aside>
 
-        {/* Main Content */}
+        {/* MAIN CONTENT */}
         <main className="w-full lg:w-3/4">
           <div className="flex justify-between items-center bg-white rounded-xl shadow-sm p-4 border border-sky-100 mb-6">
             <h3 className="text-lg font-semibold text-[#0F172A]">
@@ -170,80 +166,14 @@ const Vehicles = () => {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
               {filteredVehicles.map((v) => (
-                <div
+                <VehicleCard
                   key={v._id}
-                  className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-200 border border-sky-100"
-                >
-                  <div className="relative">
-                    <img
-                      src={
-                        v.images?.[0] ||
-                        "https://placehold.co/400x200?text=No+Image"
-                      }
-                      alt={v.modelName}
-                      className="w-full h-44 object-contain p-3"
-                    />
-                    {v.availableCount === 0 && (
-                      <span className="absolute top-3 right-3 bg-red-600 text-white text-xs px-3 py-1 rounded-full">
-                        Not Available
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="p-4 border-t border-sky-100">
-                    <h3 className="text-lg font-semibold text-[#0F172A]">
-                      {v.modelName}
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      {v.brand} • {v.type}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Available:{" "}
-                      <span
-                        className={`font-bold ${
-                          v.availableCount > 0
-                            ? "text-green-600"
-                            : "text-red-500"
-                        }`}
-                      >
-                        {v.availableCount}
-                      </span>{" "}
-                      / {v.totalQuantity}
-                    </p>
-
-                    <div className="flex justify-between items-center mt-3 text-sm text-gray-600">
-                      <p className="flex items-center">
-                        <MapPin className="w-4 h-4 mr-1 text-sky-600" />
-                        {v.location?.city || city}
-                      </p>
-                      <p className="font-bold text-sky-700">
-                        ₹{v.rentPerDay} / day
-                      </p>
-                    </div>
-
-                    <button
-                      disabled={v.availableCount === 0}
-                      onClick={() =>
-                        navigate(
-                          `/booking/${v._id}?city=${city}&pickupDate=${pickupDate}&dropoffDate=${dropoffDate}`,
-                          {
-                            state: {
-                              vehicleName: v.modelName,
-                              vehicleImage: v.images?.[0],
-                            },
-                          }
-                        )
-                      }
-                      className={`w-full mt-4 py-2 font-semibold rounded-md transition ${
-                        v.availableCount === 0
-                          ? "bg-gray-400 cursor-not-allowed text-white"
-                          : "bg-sky-600 text-white hover:bg-sky-700"
-                      }`}
-                    >
-                      {v.availableCount === 0 ? "Not Available" : "Book Now"}
-                    </button>
-                  </div>
-                </div>
+                  vehicle={v}
+                  city={city}
+                  pickupDate={pickupDate}
+                  dropoffDate={dropoffDate}
+                  navigate={navigate}
+                />
               ))}
             </div>
           )}

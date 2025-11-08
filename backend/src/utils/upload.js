@@ -1,41 +1,67 @@
 import multer from "multer";
-import path from "path";
-import fs from "fs";
-import keys from "../config/keys.js";
+import cloudinary from "cloudinary";
+import dotenv from "dotenv";
 
-const UPLOAD_DIR = keys.uploadDir;
+dotenv.config();
 
-// ensure folders exist
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-if (!fs.existsSync(path.join(UPLOAD_DIR, "documents"))) fs.mkdirSync(path.join(UPLOAD_DIR, "documents"), { recursive: true });
-if (!fs.existsSync(path.join(UPLOAD_DIR, "vehicles"))) fs.mkdirSync(path.join(UPLOAD_DIR, "vehicles"), { recursive: true });
+// 1️⃣ Multer in-memory setup
+const storage = multer.memoryStorage();
+export const upload = multer({ storage });
 
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    // fieldname 'documents' for user docs, 'images' for vehicle images
-    const folder = file.fieldname === "images" ? "vehicles" : "documents";
-    const dest = path.join(UPLOAD_DIR, folder);
-    if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
-    cb(null, dest);
-  },
-  filename: function (req, file, cb) {
-    const safe = file.originalname.replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_.-]/g, "");
-    cb(null, `${Date.now()}_${safe}`);
-  }
+// 2️⃣ Cloudinary setup
+cloudinary.v2.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const fileFilter = (req, file, cb) => {
-  const allowedImage = /jpeg|jpg|png/;
-  const allowedDocs = /pdf|jpeg|jpg|png/;
-  const ext = (path.extname(file.originalname) || "").toLowerCase().replace(".", "");
+// 3️⃣ Upload function
+export const uploadToCloudinary = (file, folder = "documents") => {
+  return new Promise((resolve, reject) => {
+    if (!file) {
+      console.warn("⚠️ uploadToCloudinary called with no file, skipping upload.");
+      return resolve(null);
+    }
 
-  if (file.fieldname === "images") {
-    return allowedImage.test(ext) ? cb(null, true) : cb(new Error("Only images allowed for images"));
-  }
-  if (file.fieldname === "documents") {
-    return allowedDocs.test(ext) ? cb(null, true) : cb(new Error("Only pdf/jpg/png allowed for documents"));
-  }
-  cb(null, false);
+    const mimetype = file.mimetype || "";
+    const uploadOptions = {
+      folder,
+      resource_type: "auto",
+      transformation: mimetype.startsWith("image/")
+        ? [{ quality: "auto", fetch_format: "auto" }]
+        : undefined,
+    };
+
+    const stream = cloudinary.v2.uploader.upload_stream(uploadOptions, (error, result) => {
+      if (error) {
+        console.error("❌ Cloudinary upload failed:", error.message);
+        return reject(error);
+      }
+      console.log("✅ Uploaded to Cloudinary:", result.secure_url);
+      resolve(result.secure_url);
+    });
+
+    try {
+      let bufferData = file.buffer;
+
+      // 🧩 Fix: handle ArrayBuffer, base64, and bloated payloads
+      if (!(bufferData instanceof Buffer)) {
+        bufferData = Buffer.from(bufferData);
+      }
+
+      // 🚨 If file size is abnormally large for a small document, attempt base64 decode
+      if (file.size > 10 * 1024 * 1024 && bufferData.toString("utf8").startsWith("data:")) {
+        console.warn("⚠️ Oversized base64-encoded upload detected, decoding...");
+        const matches = bufferData.toString().match(/^data:.*;base64,(.*)$/);
+        if (matches) bufferData = Buffer.from(matches[1], "base64");
+      }
+
+      stream.end(bufferData);
+    } catch (err) {
+      console.error("⚠️ Stream error:", err.message);
+      reject(err);
+    }
+  });
 };
 
-export const upload = multer({ storage, fileFilter });
+export { cloudinary };

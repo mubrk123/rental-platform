@@ -20,7 +20,7 @@ const bookingSchema = new mongoose.Schema(
     pickupPhoto: { type: String },
 pickupPDF: { type: String },
 
-
+pdfDownloaded: { type: Boolean, default: false },
     orderId: String, // Razorpay order ID
     paymentId: String, // Razorpay payment ID
 

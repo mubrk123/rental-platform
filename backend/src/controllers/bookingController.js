@@ -24,12 +24,12 @@ export const createBooking = async (req, res, next) => {
     const totalCost = days * vehicle.rentPerDay;
 
     // handle documents uploaded via multer
-    const docs = (req.files && req.files.documents) ? req.files.documents.map(f => {
-      // client should send input field name describing the doc type; fallback to 'other'
-      const type = f.fieldnameType || req.body.docTypes ? req.body.docTypes : "other";
-      return { type, fileUrl: f.path };
-    }) : [];
-
+    const docs = (req.files && req.files.documents)
+  ? req.files.documents.map((f) => ({
+      type: req.body.docTypes || "other",
+      fileUrl: f.path, // Cloudinary gives HTTPS URL directly
+    }))
+  : [];
     const booking = await Booking.create([{
       bookingId: generateBookingId(),
       name,
@@ -113,4 +113,20 @@ export const getBooking = async (req, res, next) => {
     booking.remainingDays = (new Date(booking.endDate) - new Date() > 0) ? Math.ceil((new Date(booking.endDate) - new Date())/(1000*60*60*24)) : 0;
     res.json(booking);
   } catch (err) { next(err); }
+};
+export const markPdfDownloaded = async (req, res, next) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: "Booking not found" });
+    }
+
+    booking.pdfDownloaded = true;
+    await booking.save();
+
+    res.json({ success: true, message: "PDF marked as downloaded" });
+  } catch (err) {
+    console.error("Error marking PDF as downloaded:", err);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
 };

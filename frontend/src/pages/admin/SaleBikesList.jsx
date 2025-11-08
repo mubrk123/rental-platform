@@ -15,7 +15,7 @@ const SaleBikesList = () => {
     const fetchBikes = async () => {
       try {
         const res = await axios.get(`${import.meta.env.VITE_API_URL}/sale-bikes`);
-        setBikes(res.data || []);
+        setBikes(res.data.bikes || []);
       } catch (err) {
         console.error("Error fetching sale bikes:", err);
       } finally {
@@ -57,10 +57,10 @@ const SaleBikesList = () => {
     const data = new FormData();
     Object.entries(formData).forEach(([key, val]) => data.append(key, val));
 
-    // Append remaining images that weren’t deleted
+    // Append remaining images
     data.append("existingImages", JSON.stringify(existingImages));
 
-    // Append new image uploads
+    // Append new images
     newImages.forEach((file) => data.append("newImages", file));
 
     try {
@@ -77,6 +77,13 @@ const SaleBikesList = () => {
       console.error("Update failed:", err);
       alert("❌ Failed to update bike details.");
     }
+  };
+
+  const resolveImageUrl = (path) => {
+    if (!path) return "https://placehold.co/400x300?text=No+Image";
+    return path.startsWith("http")
+      ? path
+      : `${import.meta.env.VITE_API_URL.replace("/api", "")}${path}`;
   };
 
   if (loading)
@@ -100,7 +107,7 @@ const SaleBikesList = () => {
               className="bg-white border border-blue-100 rounded-lg shadow-sm hover:shadow-lg transition"
             >
               <img
-                src={`${import.meta.env.VITE_API_URL.replace("/api", "")}${bike.images?.[0]}`}
+                src={resolveImageUrl(bike.images?.[0])}
                 alt={bike.modelName}
                 className="w-full h-48 object-cover rounded-t-lg"
                 onError={(e) =>
@@ -138,7 +145,7 @@ const SaleBikesList = () => {
         </div>
       )}
 
-      {/* View / Edit Modal */}
+      {/* Modal for view/edit */}
       {selectedBike && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl shadow-2xl w-[90%] max-w-lg relative p-6 overflow-y-auto max-h-[90vh]">
@@ -158,19 +165,10 @@ const SaleBikesList = () => {
                   {selectedBike.modelName}
                 </h2>
                 <div className="space-y-2 text-sm">
-                  <p>
-                    <strong>Brand:</strong> {selectedBike.brand}
-                  </p>
-                  <p>
-                    <strong>Year:</strong> {selectedBike.year || "—"}
-                  </p>
-                  <p>
-                    <strong>Price:</strong> ₹{selectedBike.price}
-                  </p>
-                  <p>
-                    <strong>Description:</strong>{" "}
-                    {selectedBike.description || "No description available"}
-                  </p>
+                  <p><strong>Brand:</strong> {selectedBike.brand}</p>
+                  <p><strong>Year:</strong> {selectedBike.year || "—"}</p>
+                  <p><strong>Price:</strong> ₹{selectedBike.price}</p>
+                  <p><strong>Description:</strong> {selectedBike.description || "No description available"}</p>
                 </div>
 
                 {selectedBike.images?.length > 0 && (
@@ -178,7 +176,7 @@ const SaleBikesList = () => {
                     {selectedBike.images.map((img, i) => (
                       <img
                         key={i}
-                        src={`${import.meta.env.VITE_API_URL.replace("/api", "")}${img}`}
+                        src={resolveImageUrl(img)}
                         alt={`bike-${i}`}
                         className="w-full h-32 object-cover rounded-lg border"
                       />
@@ -264,7 +262,6 @@ const SaleBikesList = () => {
                   </p>
                 </div>
 
-                {/* Existing Images with Delete Option */}
                 {existingImages.length > 0 && (
                   <div className="mt-4">
                     <p className="font-medium text-gray-700 mb-2">
@@ -274,7 +271,7 @@ const SaleBikesList = () => {
                       {existingImages.map((img, i) => (
                         <div key={i} className="relative group">
                           <img
-                            src={`${import.meta.env.VITE_API_URL.replace("/api", "")}${img}`}
+                            src={resolveImageUrl(img)}
                             alt={`bike-${i}`}
                             className="w-full h-32 object-cover rounded-lg border"
                           />
@@ -291,7 +288,6 @@ const SaleBikesList = () => {
                   </div>
                 )}
 
-                {/* Upload New Images */}
                 <div className="mt-4">
                   <input
                     type="file"

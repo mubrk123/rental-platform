@@ -40,25 +40,37 @@ app.use(
 app.use(compression()); // gzip compress responses
 app.use(morgan("dev")); // simple request logging
 
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://www.newbikeworld.in",
+  "https://newbikeworld.in"
+];
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization", // ✅ needed for Bearer tokens
-      "x-admin-secret",
-    ],
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-admin-secret"],
   })
 );
+
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 // ✅ Serve uploaded files statically (vehicles + documents + PDFs)
-app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+//app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
+// ---------------------------------------------
+//  MongoDB Connection
+// ---------------------------------------------
 // ---------------------------------------------
 //  MongoDB Connection
 // ---------------------------------------------
@@ -66,7 +78,10 @@ const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/rentalDB";
 
 mongoose
   .connect(MONGO_URI)
-  .then(() => console.log("✅ MongoDB connected successfully"))
+  .then(() => {
+    console.log("✅ MongoDB connected successfully");
+    console.log("🧩 Connected to DB:", mongoose.connection.name);
+  })
   .catch((err) => {
     console.error("❌ MongoDB connection error:", err.message);
     process.exit(1); // exit if DB fails to connect

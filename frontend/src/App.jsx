@@ -1,16 +1,21 @@
 // 📁 src/App.jsx
+import React, { Suspense, lazy, useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { useEffect } from "react";
-import LandingPage from "./pages/user/Dashboard";
-import Vehicles from "./pages/Vehicles";
-import AdminDashboard from "./pages/admin/AdminDashboard";
-import BookingPage from "./pages/BookingPage";
-import BookingSuccess from "./pages/BookingSuccess";
-import PaymentPreview from "./pages/PaymentPreview";
-import AdminLogin from "./pages/admin/AdminLogin"; // ✅ Added
 import { loadRazorpayScript } from "./lib/loadRazorpay";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-// ✅ Wrapper to protect admin-only pages
+// ✅ Global React Query Client (for caching & data optimization)
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 2 * 60 * 1000, // Cache for 2 minutes
+      refetchOnWindowFocus: false, // Prevent refetch on tab switch
+    },
+  },
+});
+
+// 🛡️ Protect Admin Route
 const ProtectedAdminRoute = ({ children }) => {
   const token = localStorage.getItem("adminToken");
 
@@ -20,7 +25,7 @@ const ProtectedAdminRoute = ({ children }) => {
   }
 
   try {
-    // optional lightweight expiry check
+    // Decode JWT payload and check expiry
     const payload = JSON.parse(atob(token.split(".")[1]));
     const isExpired = Date.now() >= payload.exp * 1000;
     if (isExpired) {
@@ -38,34 +43,54 @@ const ProtectedAdminRoute = ({ children }) => {
   return children;
 };
 
+// 🚀 Lazy-loaded route components (bundle-split by page)
+const LandingPage = lazy(() => import("./pages/user/Dashboard"));
+const Vehicles = lazy(() => import("./pages/Vehicles"));
+const BookingPage = lazy(() => import("./pages/BookingPage"));
+const BookingSuccess = lazy(() => import("./pages/BookingSuccess"));
+//const PaymentPreview = lazy(() => import("./pages/PaymentPreview"));
+const AllSaleBikes = lazy(() => import("./pages/AllSaleBikes"));
+const AdminLogin = lazy(() => import("./pages/admin/AdminLogin"));
+const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+
 function App() {
-  // ✅ Preload Razorpay script once when app starts
+  // ⚙️ Preload Razorpay SDK once on startup
   useEffect(() => {
     loadRazorpayScript();
   }, []);
 
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* 🧍‍♂️ User Side */}
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/vehicles" element={<Vehicles />} />
-        <Route path="/booking/:id" element={<BookingPage />} />
-        <Route path="/payment-preview/:id" element={<PaymentPreview />} />
-        <Route path="/booking-success" element={<BookingSuccess />} />
-
-        {/* 🛡️ Admin Side */}
-        <Route path="/admin-login" element={<AdminLogin />} />
-        <Route
-          path="/admin"
-          element={
-            <ProtectedAdminRoute>
-              <AdminDashboard />
-            </ProtectedAdminRoute>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <Suspense
+          fallback={
+            <div className="min-h-screen flex justify-center items-center text-sky-600 font-semibold">
+              Loading...
+            </div>
           }
-        />
-      </Routes>
-    </BrowserRouter>
+        >
+          <Routes>
+            {/* 🧍‍♂️ User Side */}
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/vehicles" element={<Vehicles />} />
+            <Route path="/booking/:id" element={<BookingPage />} />
+            <Route path="/booking-success" element={<BookingSuccess />} />
+            <Route path="/sale-bikes" element={<AllSaleBikes />} />
+
+            {/* 🛡️ Admin Side */}
+            <Route path="/admin-login" element={<AdminLogin />} />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedAdminRoute>
+                  <AdminDashboard />
+                </ProtectedAdminRoute>
+              }
+            />
+          </Routes>
+        </Suspense>
+      </BrowserRouter>
+    </QueryClientProvider>
   );
 }
 

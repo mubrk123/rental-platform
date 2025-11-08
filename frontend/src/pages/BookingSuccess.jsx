@@ -1,4 +1,5 @@
-import React from "react";
+// 📁 frontend/src/pages/BookingSuccess.jsx
+import React, { useEffect, useState } from "react";
 import { useLocation, Link } from "react-router-dom";
 import {
   CheckCircle2,
@@ -7,11 +8,54 @@ import {
   CornerDownRight,
   Mail,
   Phone,
+  Loader2,
 } from "lucide-react";
+import axios from "axios";
 
 const BookingSuccess = () => {
   const { state } = useLocation();
-  const booking = state?.booking;
+  const initialBooking = state?.booking || null;
+  const [booking, setBooking] = useState(initialBooking);
+  const [loading, setLoading] = useState(!initialBooking);
+  const [verifying, setVerifying] = useState(true);
+
+  // 🧠 Poll backend until booking is verified
+  useEffect(() => {
+    if (!initialBooking?.vehicleId) return;
+
+    const fetchBookingStatus = async () => {
+      try {
+        const { data } = await axios.get(
+          `${import.meta.env.VITE_API_URL}/bookings/status/${initialBooking.vehicleId}`
+        );
+        if (data?.success && data.booking?.status === "paid") {
+          setBooking((prev) => ({ ...prev, ...data.booking }));
+          setVerifying(false);
+        }
+      } catch {
+        console.warn("Waiting for backend verification...");
+      }
+    };
+
+    const interval = setInterval(fetchBookingStatus, 2000);
+    const timeout = setTimeout(() => {
+      clearInterval(interval);
+      setVerifying(false);
+    }, 10000);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, [initialBooking]);
+
+  if (loading)
+    return (
+      <div className="flex flex-col justify-center items-center min-h-screen text-sky-700">
+        <Loader2 className="w-10 h-10 animate-spin mb-3" />
+        <p>Preparing your confirmation...</p>
+      </div>
+    );
 
   if (!booking)
     return (
@@ -27,18 +71,28 @@ const BookingSuccess = () => {
     );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-sky-100 flex flex-col items-center justify-center py-12 px-4">
-      {/* ✅ Success Icon */}
-      <div className="bg-green-100 p-4 rounded-full mb-4 shadow-inner">
-        <CheckCircle2 className="w-16 h-16 text-green-600" />
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-sky-100 flex flex-col items-center justify-center py-12 px-4 transition-all duration-500">
+      {/* ✅ Success or Verifying Icon */}
+      <div
+        className={`p-4 rounded-full mb-4 shadow-inner ${
+          verifying ? "bg-yellow-100" : "bg-green-100"
+        }`}
+      >
+        {verifying ? (
+          <Loader2 className="w-16 h-16 text-yellow-500 animate-spin" />
+        ) : (
+          <CheckCircle2 className="w-16 h-16 text-green-600" />
+        )}
       </div>
 
       {/* ✅ Personalized Title */}
       <h2 className="text-3xl font-extrabold text-[#0A3D62] mb-2">
-        Thank You, {booking.name}!
+        {verifying ? "Finalizing Your Booking..." : `Thank You, ${booking.name}!`}
       </h2>
       <p className="text-gray-600 mb-8 text-center">
-        Your Bangalore adventure is confirmed! Get ready to ride.
+        {verifying
+          ? "Please wait a few seconds while we confirm your payment and documents."
+          : "Your Bangalore adventure is confirmed! Get ready to ride."}
       </p>
 
       {/* ✅ Booking Ticket Card */}
@@ -52,6 +106,8 @@ const BookingSuccess = () => {
             }
             alt="Booked Bike"
             className="w-full h-full object-contain"
+            loading="lazy"
+            decoding="async"
           />
         </div>
 
@@ -86,7 +142,8 @@ const BookingSuccess = () => {
           </p>
           <p className="flex items-center mt-1">
             <Phone className="w-4 h-4 text-blue-500 mr-2" />
-            WhatsApp confirmation sent to <strong>&nbsp;{booking.phoneNumber}</strong>
+            WhatsApp confirmation sent to{" "}
+            <strong>&nbsp;{booking.phoneNumber}</strong>
           </p>
         </div>
 
@@ -131,19 +188,17 @@ const BookingSuccess = () => {
 
         {/* ✅ Back Button */}
         <Link
-  to="/vehicles"
-  state={{ refresh: true }}
-  className="mt-4 block text-center border border-[#0A3D62] text-[#0A3D62] py-2 rounded-lg font-medium hover:bg-sky-50 transition"
->
-  Back to Vehicles
-</Link>
-
+          to="/vehicles"
+          state={{ refresh: true }}
+          className="mt-4 block text-center border border-[#0A3D62] text-[#0A3D62] py-2 rounded-lg font-medium hover:bg-sky-50 transition"
+        >
+          Back to Vehicles
+        </Link>
 
         {/* ✅ Footer Support */}
         <p className="text-xs text-gray-500 mt-6 text-center">
-          Need help or need to modify your booking? <br />
-          Call us at <strong>+91 98765 43210</strong> or reply to your confirmation
-          email.
+          Need help or modify your booking? <br />
+          Call us at <strong>+91 98765 43210</strong> or reply to your confirmation email.
         </p>
       </div>
     </div>

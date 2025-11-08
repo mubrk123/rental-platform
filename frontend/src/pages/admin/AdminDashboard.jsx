@@ -1,4 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  lazy,
+  Suspense,
+  memo,
+} from "react";
 import {
   Home,
   Calendar,
@@ -16,13 +23,14 @@ import {
   ChevronRight,
 } from "lucide-react";
 
-import DashboardHome from "./DashboardHome";
-import BookingsList from "./BookingsList";
-import UploadedVehicles from "./UploadedVehicles";
-import UploadVehicle from "./UploadVehicle";
-import UploadSaleBike from "./UploadSaleBike";
-import SaleBikesList from "./SaleBikesList";
-import SettingsPage from "./Settings";
+// ✅ Lazy load all heavy subpages (loads on demand)
+const DashboardHome = lazy(() => import("./DashboardHome"));
+const BookingsList = lazy(() => import("./BookingsList"));
+const UploadedVehicles = lazy(() => import("./UploadedVehicles"));
+const UploadVehicle = lazy(() => import("./UploadVehicle"));
+const UploadSaleBike = lazy(() => import("./UploadSaleBike"));
+const SaleBikesList = lazy(() => import("./SaleBikesList"));
+const SettingsPage = lazy(() => import("./Settings"));
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -30,14 +38,17 @@ const AdminDashboard = () => {
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
+    // Disable body scroll when mobile sidebar is open
     document.body.style.overflow = sidebarOpen ? "hidden" : "auto";
   }, [sidebarOpen]);
 
   const handleLogout = () => {
+    localStorage.removeItem("adminToken");
     window.location.href = "/";
   };
 
-  const renderContent = () => {
+  // ✅ Memoized content switcher — only re-renders when tab changes
+  const content = useMemo(() => {
     switch (activeTab) {
       case "dashboard":
         return <DashboardHome />;
@@ -56,25 +67,38 @@ const AdminDashboard = () => {
       default:
         return <DashboardHome />;
     }
-  };
+  }, [activeTab]);
+
+  const NAV_ITEMS = useMemo(
+    () => [
+      ["Dashboard", Home, "dashboard"],
+      ["Bookings", Calendar, "bookings"],
+      ["My Vehicles", Bike, "vehicles"],
+      ["Upload Vehicle", Upload, "upload"],
+      ["Upload Sale Bike", Upload, "upload-sale"],
+      ["Sale Bike List", List, "sale-list"],
+      ["Settings", Settings, "settings"],
+    ],
+    []
+  );
 
   return (
-    <div className="flex min-h-screen bg-[#F5F8FB] text-[#0E3A61] font-[Inter]">
+    <div className="flex min-h-screen bg-[#F5F8FB] text-[#0E3A61] font-[Inter] transition-all duration-300">
       {/* ===== SIDEBAR ===== */}
       <aside
         className={`${
           collapsed ? "w-20" : "w-64"
-        } hidden md:flex flex-col bg-gradient-to-b from-[#0E3A61]/95 to-[#1E88E5]/95 backdrop-blur-lg shadow-2xl transition-all duration-300 border-r border-blue-100`}
+        } hidden md:flex flex-col bg-gradient-to-b from-[#0E3A61]/95 to-[#1E88E5]/95 shadow-2xl transition-all duration-300 ease-in-out will-change-transform border-r border-blue-100`}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-blue-200">
-          {!collapsed ? (
-            <h2 className="text-xl font-bold text-white tracking-wide">
-              Admin Panel
-            </h2>
-          ) : (
-            <h2 className="text-lg font-bold text-white">A</h2>
-          )}
+          <h2
+            className={`${
+              collapsed ? "text-lg" : "text-xl"
+            } font-bold text-white tracking-wide`}
+          >
+            {collapsed ? "A" : "Admin Panel"}
+          </h2>
           <button
             onClick={() => setCollapsed(!collapsed)}
             className="p-1 rounded-md hover:bg-white/10 transition"
@@ -89,15 +113,7 @@ const AdminDashboard = () => {
 
         {/* Navigation */}
         <nav className="flex flex-col p-4 space-y-1 text-sm font-medium">
-          {[
-            ["Dashboard", Home, "dashboard"],
-            ["Bookings", Calendar, "bookings"],
-            ["My Vehicles", Bike, "vehicles"],
-            ["Upload Vehicle", Upload, "upload"],
-            ["Upload Sale Bike", Upload, "upload-sale"],
-            ["Sale Bike List", List, "sale-list"],
-            ["Settings", Settings, "settings"],
-          ].map(([label, Icon, key]) => (
+          {NAV_ITEMS.map(([label, Icon, key]) => (
             <SidebarButton
               key={key}
               icon={Icon}
@@ -132,7 +148,7 @@ const AdminDashboard = () => {
       </div>
 
       {sidebarOpen && (
-        <div className="fixed inset-0 z-40 flex">
+        <div className="fixed inset-0 z-40 flex transition-opacity duration-300">
           <div
             className="fixed inset-0 bg-black/50"
             onClick={() => setSidebarOpen(false)}
@@ -149,15 +165,7 @@ const AdminDashboard = () => {
             </div>
 
             <nav className="flex flex-col space-y-2">
-              {[
-                ["Dashboard", Home, "dashboard"],
-                ["Bookings", Calendar, "bookings"],
-                ["My Vehicles", Bike, "vehicles"],
-                ["Upload Vehicle", Upload, "upload"],
-                ["Upload Sale Bike", Upload, "upload-sale"],
-                ["Sale Bike List", List, "sale-list"],
-                ["Settings", Settings, "settings"],
-              ].map(([label, Icon, key]) => (
+              {NAV_ITEMS.map(([label, Icon, key]) => (
                 <SidebarButton
                   key={key}
                   icon={Icon}
@@ -186,7 +194,7 @@ const AdminDashboard = () => {
       {/* ===== MAIN CONTENT ===== */}
       <main className="flex-1 flex flex-col min-h-screen">
         {/* Header */}
-        <header className="hidden md:flex items-center justify-between bg-gradient-to-r from-[#0E3A61]/95 to-[#1E88E5]/95 backdrop-blur-md text-white px-8 py-4 sticky top-0 z-20 shadow-lg">
+        <header className="hidden md:flex items-center justify-between bg-gradient-to-r from-[#0E3A61]/95 to-[#1E88E5]/95 text-white px-8 py-4 sticky top-0 z-20 shadow-lg">
           <h1 className="text-lg font-semibold">Admin Dashboard</h1>
           <div className="flex items-center space-x-4">
             <div className="relative">
@@ -203,22 +211,23 @@ const AdminDashboard = () => {
                 2
               </span>
             </button>
-            <button className="flex items-center">
-              <UserCircle className="w-8 h-8 text-white" />
-            </button>
+            <UserCircle className="w-8 h-8 text-white" />
           </div>
         </header>
 
         {/* Main Content */}
         <section className="flex-1 p-4 sm:p-6 md:p-8 bg-[#F5F8FB] mt-12 md:mt-0 overflow-y-auto">
-          {renderContent()}
+          <Suspense fallback={<div className="p-8 text-gray-500">Loading...</div>}>
+            {content}
+          </Suspense>
         </section>
       </main>
     </div>
   );
 };
 
-const SidebarButton = ({ icon: Icon, label, active, collapsed, onClick }) => (
+// ✅ Memoized SidebarButton for performance
+const SidebarButton = memo(({ icon: Icon, label, active, collapsed, onClick }) => (
   <button
     onClick={onClick}
     className={`flex items-center ${
@@ -232,6 +241,6 @@ const SidebarButton = ({ icon: Icon, label, active, collapsed, onClick }) => (
     <Icon className="w-5 h-5" />
     {!collapsed && <span>{label}</span>}
   </button>
-);
+));
 
 export default AdminDashboard;
