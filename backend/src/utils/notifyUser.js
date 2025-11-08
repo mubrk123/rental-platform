@@ -24,9 +24,10 @@ export const sendWhatsAppTemplate = async (to, type, vars = {}) => {
 
     // ✅ Twilio expects "code" variable for WA Authentication templates
     const normalizedVars =
-      type === "OTP"
-        ? { code: String(vars.otp || vars.code || vars.value) }
-        : Object.fromEntries(Object.entries(vars).map(([k, v]) => [k, String(v)]));
+  type === "OTP"
+    ? { "1": String(vars["1"] || vars.otp || vars.code || vars.value) }
+    : Object.fromEntries(Object.entries(vars).map(([k, v]) => [k, String(v)]));
+
 
     console.log(`🟦 Sending ${type} to ${formattedTo} with vars:`, normalizedVars);
 
