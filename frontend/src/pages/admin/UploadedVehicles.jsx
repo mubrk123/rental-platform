@@ -9,6 +9,7 @@ import {
   X,
   CalendarDays,
   UploadCloud,
+  Gauge,
 } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 
