@@ -11,6 +11,10 @@ const vehicleSchema = new mongoose.Schema(
     rentPerDay: { type: Number, required: true },
     totalQuantity: { type: Number, default: 1, min: 0 },
     bookedQuantity: { type: Number, default: 0, min: 0 },
+
+    // ✅ Add this field
+    kmLimitPerDay: { type: Number, default: 150 }, // Example default: 150 km/day
+
     location: {
       city: { type: String, required: true, index: true },
       address: { type: String },

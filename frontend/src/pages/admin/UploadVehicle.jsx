@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
-import { UploadCloud, Image as ImageIcon } from "lucide-react";
+import { UploadCloud, Image as ImageIcon, Gauge } from "lucide-react";
 
 const LOCATIONS = [
   "All Locations",
@@ -18,6 +18,7 @@ const UploadVehicle = () => {
     totalQuantity: "",
     city: LOCATIONS[0],
     type: "bike",
+    kmLimitPerDay: "", // ✅ Added new field
   });
   const [images, setImages] = useState([]);
   const [preview, setPreview] = useState([]);
@@ -59,6 +60,7 @@ const UploadVehicle = () => {
         totalQuantity: "",
         city: LOCATIONS[0],
         type: "bike",
+        kmLimitPerDay: "", // ✅ Reset field
       });
       setImages([]);
       setPreview([]);
@@ -98,7 +100,7 @@ const UploadVehicle = () => {
           <input
             type="number"
             name="rentPerDay"
-            placeholder="Rent Per Day"
+            placeholder="Rent Per Day (₹)"
             value={formData.rentPerDay}
             onChange={handleChange}
             className="border rounded-lg p-2"
@@ -113,6 +115,18 @@ const UploadVehicle = () => {
             className="border rounded-lg p-2"
             required
           />
+
+          {/* ✅ New KM Limit Field */}
+          <input
+            type="number"
+            name="kmLimitPerDay"
+            placeholder="KM Limit Per Day (e.g. 150)"
+            value={formData.kmLimitPerDay}
+            onChange={handleChange}
+            className="border rounded-lg p-2"
+            required
+          />
+
           <select
             name="city"
             value={formData.city}
@@ -123,6 +137,7 @@ const UploadVehicle = () => {
               <option key={loc}>{loc}</option>
             ))}
           </select>
+
           <select
             name="type"
             value={formData.type}

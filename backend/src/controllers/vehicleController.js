@@ -1,5 +1,4 @@
 import Vehicle from "../models/Vehicle.js";
-import path from "path";
 import { cloudinary } from "../utils/upload.js";
 
 /**
@@ -20,10 +19,17 @@ const formatVehicleData = (req, v) => {
  */
 export const createVehicle = async (req, res) => {
   try {
-    const { modelName, brand, rentPerDay, totalQuantity, city, type } = req.body;
-    const normalizedType = type.toLowerCase();
+    const {
+      modelName,
+      brand,
+      rentPerDay,
+      totalQuantity,
+      city,
+      type,
+      kmLimitPerDay, // ✅ Added
+    } = req.body;
 
-    // ✅ Use Cloudinary URLs
+    const normalizedType = type?.toLowerCase();
     const imagePaths = req.files ? req.files.map((file) => file.path) : [];
 
     const newVehicle = await Vehicle.create({
@@ -33,6 +39,7 @@ export const createVehicle = async (req, res) => {
       totalQuantity,
       bookedQuantity: 0,
       type: normalizedType,
+      kmLimitPerDay: kmLimitPerDay || 150, // ✅ Default fallback
       location: { city },
       images: imagePaths,
     });
@@ -134,6 +141,7 @@ export const deleteVehicle = async (req, res) => {
     res.status(500).json({ success: false, message: "Error deleting vehicle" });
   }
 };
+
 /**
  * ✅ PUT /api/vehicles/:id
  * Update vehicle details and images
@@ -141,7 +149,15 @@ export const deleteVehicle = async (req, res) => {
 export const updateVehicle = async (req, res) => {
   try {
     const { id } = req.params;
-    const { modelName, brand, rentPerDay, totalQuantity, city, type } = req.body;
+    const {
+      modelName,
+      brand,
+      rentPerDay,
+      totalQuantity,
+      city,
+      type,
+      kmLimitPerDay, // ✅ Added
+    } = req.body;
 
     const vehicle = await Vehicle.findById(id);
     if (!vehicle)
@@ -150,13 +166,14 @@ export const updateVehicle = async (req, res) => {
         message: "Vehicle not found",
       });
 
-    // ✅ Update core details
+    // ✅ Update details
     vehicle.modelName = modelName || vehicle.modelName;
     vehicle.brand = brand || vehicle.brand;
     vehicle.rentPerDay = rentPerDay || vehicle.rentPerDay;
     vehicle.totalQuantity = totalQuantity || vehicle.totalQuantity;
     vehicle.type = type ? type.toLowerCase() : vehicle.type;
     vehicle.location = { city: city || vehicle.location?.city };
+    vehicle.kmLimitPerDay = kmLimitPerDay || vehicle.kmLimitPerDay || 150; // ✅ Added
 
     // ✅ Handle new image uploads (if any)
     if (req.files && req.files.length > 0) {

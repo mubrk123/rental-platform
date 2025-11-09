@@ -9,10 +9,15 @@ const templates = {
   OTP: process.env.TWILIO_TEMPLATE_OTP_SID,
   BOOKING_CONFIRMATION: process.env.TWILIO_TEMPLATE_CONFIRM_SID,
   THANK_YOU: process.env.TWILIO_TEMPLATE_THANKYOU_SID,
+  BOOKING_ALERT_HANDLER: process.env.TWILIO_TEMPLATE_HANDLER_SID, // ✅ new
+  BOOKING_ALERT_ADMIN: process.env.TWILIO_TEMPLATE_ADMIN_SID,     // ✅ new
 };
 
 /**
  * ✅ Send WhatsApp template message via Twilio
+ * @param {string} to - phone number (+91XXXXXXXXXX or 10 digits)
+ * @param {string} type - template type (key from templates)
+ * @param {object} vars - dynamic variables
  */
 export const sendWhatsAppTemplate = async (to, type, vars = {}) => {
   try {
@@ -22,12 +27,10 @@ export const sendWhatsAppTemplate = async (to, type, vars = {}) => {
     const contentSid = templates[type];
     if (!contentSid) throw new Error(`Template not configured for type: ${type}`);
 
-    // ✅ Twilio expects "code" variable for WA Authentication templates
     const normalizedVars =
-  type === "OTP"
-    ? { "1": String(vars["1"] || vars.otp || vars.code || vars.value) }
-    : Object.fromEntries(Object.entries(vars).map(([k, v]) => [k, String(v)]));
-
+      type === "OTP"
+        ? { "1": String(vars["1"] || vars.otp || vars.code || vars.value) }
+        : Object.fromEntries(Object.entries(vars).map(([k, v]) => [k, String(v)]));
 
     console.log(`🟦 Sending ${type} to ${formattedTo} with vars:`, normalizedVars);
 

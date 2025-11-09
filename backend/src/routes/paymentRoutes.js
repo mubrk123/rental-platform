@@ -1,13 +1,12 @@
+// 📁 src/routes/paymentRoutes.js
 import express from "express";
 import crypto from "crypto";
-import path from "path";
-import fs from "fs";
 import Razorpay from "razorpay";
 import Booking from "../models/Booking.js";
 import Vehicle from "../models/Vehicle.js";
 import { sendWhatsAppTemplate } from "../utils/notifyUser.js";
 import { sendEmail } from "../utils/sendEmail.js";
-import { upload, uploadToCloudinary} from "../utils/upload.js"; // ✅ Cloudinary upload
+import { upload, uploadToCloudinary } from "../utils/upload.js";
 import { pickupLocations } from "../utils/locationMap.js";
 
 const router = express.Router();
@@ -18,13 +17,10 @@ const router = express.Router();
 router.post("/create-order", async (req, res) => {
   try {
     const { pricePerDay, pickupDate, dropoffDate } = req.body;
-
     const start = new Date(pickupDate);
     const end = new Date(dropoffDate);
     const days = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
     const baseAmount = days * Number(pricePerDay || 0);
-
-    // ✅ Include taxes (10%) and handling fee (₹10)
     const taxes = Math.round(baseAmount * 0.1);
     const handling = 10;
     const totalAmount = baseAmount + taxes + handling;
@@ -35,7 +31,7 @@ router.post("/create-order", async (req, res) => {
     });
 
     const order = await razorpay.orders.create({
-      amount: Math.round(totalAmount * 100), // convert to paise
+      amount: Math.round(totalAmount * 100),
       currency: "INR",
       receipt: `receipt_${Date.now()}`,
       notes: { days, pickupDate, dropoffDate, baseAmount, taxes, handling },
@@ -81,11 +77,11 @@ router.post(
       if (expected !== razorpay_signature)
         return res.status(400).json({ success: false, message: "Invalid signature" });
 
-      // ✅ Prevent duplicates
+      // ✅ Prevent duplicate bookings
       const existing = await Booking.findOne({ paymentId: razorpay_payment_id });
       if (existing) return res.json({ success: true, booking: existing });
 
-      // ✅ Upload documents to Cloudinary
+      // ✅ Upload documents
       const aadhaarPath = req.files?.aadhaarDocument
         ? await uploadToCloudinary(req.files.aadhaarDocument[0], "documents")
         : null;
@@ -93,7 +89,7 @@ router.post(
         ? await uploadToCloudinary(req.files.licenseDocument[0], "documents")
         : null;
 
-      // ✅ Save booking
+      // ✅ Save booking record
       const newBooking = new Booking({
         userId,
         vehicleId,
@@ -118,29 +114,65 @@ router.post(
         await vehicle.save();
       }
 
-      // ✅ Send WhatsApp Booking Confirmation Template
-// ✅ Send WhatsApp Booking Confirmation Template
-try {
-  const locKey = city?.trim().toLowerCase();
-  const locData = pickupLocations[locKey] || {};
+      // ✅ USER CONFIRMATION MESSAGE
+      try {
+        const locKey = city?.trim().toLowerCase();
+        const locData = pickupLocations[locKey] || {};
+        await sendWhatsAppTemplate(phoneNumber, "BOOKING_CONFIRMATION", {
+  1: name,
+  2: pickupDate,
+  3: dropoffDate,
+  4: city,
+  5: `${locData.address || "Pickup Counter"} 📍 ${locData.link || ""}`,
+  6: locData.handlerPhone || process.env.DEFAULT_HANDLER_NUMBER || "+919900000000", // ✅ handler’s number shown to user
+  7: vehicle?.modelName || "our bike",
+});
 
-  await sendWhatsAppTemplate(phoneNumber, "BOOKING_CONFIRMATION", {
-    1: name,
-    2: pickupDate,
-    3: dropoffDate,
-    4: city,
-    5: `${locData.address || "Pickup Counter"} 📍 ${locData.link || ""}`,
-    6: "+91" + phoneNumber,
-    7: vehicle?.modelName || "our bike",
-  });
+        console.log(`✅ Booking confirmation WhatsApp sent to ${phoneNumber}`);
+      } catch (err) {
+        console.warn("⚠️ Booking confirmation message failed:", err.message);
+      }
 
-  console.log(`✅ Booking confirmation WhatsApp sent to ${phoneNumber}`);
-} catch (err) {
-  console.warn("⚠️ Booking confirmation message failed:", err.message);
-}
+      // ✅ HANDLER + ADMIN ALERTS
+      try {
+        const locKey = city?.trim().toLowerCase();
+        const locData = pickupLocations[locKey] || {};
+        const handlerNumber = locData.handlerPhone || process.env.DEFAULT_HANDLER_NUMBER;
+        const adminNumber = process.env.MAIN_ADMIN_NUMBER;
 
+        // 🔹 Send handler alert
+        if (handlerNumber) {
+          await sendWhatsAppTemplate(handlerNumber, "BOOKING_ALERT_HANDLER", {
+            1: locData.name || city,
+            2: name,
+            3: "+91" + phoneNumber,
+            4: email,
+            5: vehicle?.modelName || "Bike",
+            6: pickupDate,
+            7: dropoffDate,
+          });
+          console.log(`✅ Handler alert sent to ${handlerNumber}`);
+        }
 
-      // ✅ Send Email confirmation
+        // 🔹 Send admin alert
+        if (adminNumber) {
+          await sendWhatsAppTemplate(adminNumber, "BOOKING_ALERT_ADMIN", {
+            1: city,
+            2: name,
+            3: "+91" + phoneNumber,
+            4: email,
+            5: vehicle?.modelName || "Bike",
+            6: pickupDate,
+            7: dropoffDate,
+            8: locData.name || "Unknown Handler",
+          });
+          console.log(`✅ Admin alert sent to ${adminNumber}`);
+        }
+      } catch (err) {
+        console.warn("⚠️ Handler/Admin WhatsApp alerts failed:", err.message);
+      }
+
+      // ✅ EMAIL CONFIRMATION
       if (email) {
         try {
           await sendEmail(email, {
@@ -156,7 +188,6 @@ try {
           console.warn("⚠️ Email sending failed:", err.message);
         }
       }
-
 
       res.json({ success: true, booking: newBooking });
     } catch (err) {

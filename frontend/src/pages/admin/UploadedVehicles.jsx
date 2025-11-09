@@ -29,13 +29,14 @@ const UploadedVehicles = () => {
   // edit modal
   const [editingVehicle, setEditingVehicle] = useState(null);
   const [formData, setFormData] = useState({
-    modelName: "",
-    brand: "",
-    rentPerDay: "",
-    totalQuantity: "",
-    city: LOCATIONS[1],
-    type: "bike",
-  });
+  modelName: "",
+  brand: "",
+  rentPerDay: "",
+  totalQuantity: "",
+  city: LOCATIONS[1],
+  type: "bike",
+  kmLimitPerDay: "", // ✅ Added new field
+});
   const [images, setImages] = useState([]);
   const [preview, setPreview] = useState([]);
 
@@ -106,13 +107,14 @@ const UploadedVehicles = () => {
   const openEditForm = (vehicle) => {
     setEditingVehicle(vehicle);
     setFormData({
-      modelName: vehicle.modelName,
-      brand: vehicle.brand,
-      rentPerDay: vehicle.rentPerDay,
-      totalQuantity: vehicle.totalQuantity,
-      city: vehicle.city || vehicle.location?.city || LOCATIONS[1],
-      type: vehicle.type,
-    });
+  modelName: vehicle.modelName,
+  brand: vehicle.brand,
+  rentPerDay: vehicle.rentPerDay,
+  totalQuantity: vehicle.totalQuantity,
+  city: vehicle.city || vehicle.location?.city || LOCATIONS[1],
+  type: vehicle.type,
+  kmLimitPerDay: vehicle.kmLimitPerDay || 150, // ✅ Added
+});
     setImages([]);
     setPreview(vehicle.images || []);
   };
@@ -283,6 +285,10 @@ const handleUpdate = async (e) => {
                 <p className="text-gray-700 text-sm font-semibold">
                   ₹{v.rentPerDay} / day
                 </p>
+                <p className="text-xs text-gray-600 mt-1 flex items-center">
+  <Gauge className="w-4 h-4 mr-1 text-sky-500" />
+  {v.kmLimitPerDay ? `${v.kmLimitPerDay} km/day` : "150 km/day"}
+</p>
                 <p className="text-xs text-gray-500 mt-1">
                   Available:{" "}
                   <span
@@ -451,7 +457,20 @@ const handleUpdate = async (e) => {
                   <option value="scooter">Scooter</option>
                 </select>
               </div>
-
+<div>
+  <label className="block text-sm font-medium text-gray-700 mb-1">
+    KM Limit Per Day
+  </label>
+  <input
+    type="number"
+    name="kmLimitPerDay"
+    value={formData.kmLimitPerDay}
+    onChange={handleFormChange}
+    className="border rounded-lg p-2 w-full"
+    placeholder="e.g. 150"
+    required
+  />
+</div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Upload Images (optional)

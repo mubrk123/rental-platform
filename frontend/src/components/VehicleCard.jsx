@@ -1,5 +1,5 @@
 import React from "react";
-import { MapPin } from "lucide-react";
+import { MapPin, Gauge } from "lucide-react";
 import { useLazyImage } from "../utils/useLazyImage";
 
 const VehicleCard = ({ vehicle, city, pickupDate, dropoffDate, navigate }) => {
@@ -56,10 +56,18 @@ const VehicleCard = ({ vehicle, city, pickupDate, dropoffDate, navigate }) => {
             <MapPin className="w-4 h-4 mr-1 text-sky-600" />
             {vehicle.location?.city || city}
           </p>
-          <p className="font-bold text-sky-700">
-            ₹{vehicle.rentPerDay} / day
-          </p>
+          <p className="font-bold text-sky-700">₹{vehicle.rentPerDay} / day</p>
         </div>
+
+        {/* ✅ NEW: KM Limit per Day */}
+        <p className="text-sm text-gray-600 mt-2 flex items-center justify-between">
+          <span className="flex items-center">
+            <Gauge className="w-4 h-4 mr-1 text-sky-500" />
+            {vehicle.kmLimitPerDay
+              ? `${vehicle.kmLimitPerDay} km/day limit`
+              : "150 km/day limit"}
+          </span>
+        </p>
 
         <button
           disabled={vehicle.availableCount === 0}
