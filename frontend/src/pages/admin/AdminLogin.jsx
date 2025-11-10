@@ -20,11 +20,12 @@ const AdminLogin = () => {
         password,
       });
 
-      if (data.success) {
+      // ✅ Save the token if present
+      if (data?.token) {
         localStorage.setItem("adminToken", data.token);
-        window.location.href = "/admin";
+        window.location.href = "/admin"; // redirect to admin panel
       } else {
-        setError("Invalid email or password");
+        setError(data?.message || "Invalid email or password");
       }
     } catch (err) {
       console.error("Login error:", err);

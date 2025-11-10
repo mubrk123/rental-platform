@@ -49,12 +49,13 @@ const UploadedVehicles = () => {
     vehicle: null,
   });
 
-  const adminHeaders = useMemo(
-    () => ({
-      "x-admin-secret": import.meta.env.VITE_ADMIN_SECRET,
-    }),
-    []
-  );
+  const adminHeaders = useMemo(() => {
+  const token = localStorage.getItem("adminToken");
+  return {
+    Authorization: `Bearer ${token}`,
+  };
+}, []);
+
 
   // ✅ Fetch all vehicles
   const fetchVehicles = useCallback(async () => {
@@ -291,16 +292,17 @@ const handleUpdate = async (e) => {
   {v.kmLimitPerDay ? `${v.kmLimitPerDay} km/day` : "150 km/day"}
 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  Available:{" "}
-                  <span
-                    className={`font-bold ${
-                      v.availableCount > 0 ? "text-green-600" : "text-red-600"
-                    }`}
-                  >
-                    {v.availableCount}
-                  </span>{" "}
-                  / {v.totalQuantity}
-                </p>
+  Available:{" "}
+  <span
+    className={`font-bold ${
+      v.availableCount > 0 ? "text-green-600" : "text-red-600"
+    }`}
+  >
+    {v.availableCount}
+  </span>{" "}
+  Total: {v.totalQuantity}
+</p>
+
 
                 {/* View upcoming bookings */}
                 <button
