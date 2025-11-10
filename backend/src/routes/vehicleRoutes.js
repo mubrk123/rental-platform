@@ -121,29 +121,46 @@ router.get("/:id/bookings/upcoming", async (req, res) => {
 /* --------------------------------------------------------------------------
  * ✏️ PUT /api/vehicles/:id — Update vehicle (Main Admin only)
  * -------------------------------------------------------------------------- */
+/* --------------------------------------------------------------------------
+ * ✏️ PUT /api/vehicles/:id — Update vehicle (Main Admin only)
+ * -------------------------------------------------------------------------- */
 router.put("/:id", verifyMainAdmin, upload.array("images", 5), async (req, res) => {
   try {
     const { id } = req.params;
-    const { modelName, brand, rentPerDay, totalQuantity, city, type } = req.body;
+    // NOTE: include kmLimitPerDay here
+    const { modelName, brand, rentPerDay, totalQuantity, city, type, kmLimitPerDay } = req.body;
 
     const vehicle = await Vehicle.findById(id);
     if (!vehicle)
       return res.status(404).json({ success: false, message: "Vehicle not found" });
 
-    // ✅ Update fields
+    // ---------- Safe numeric parsing (don't use `||` for values that can be 0) ----------
+    const parsedRent =
+      rentPerDay !== undefined && rentPerDay !== "" ? Math.round(Number(rentPerDay)) : vehicle.rentPerDay;
+
+    const parsedQuantity =
+      totalQuantity !== undefined && totalQuantity !== "" ? Math.max(0, Number(totalQuantity)) : vehicle.totalQuantity;
+
+    const parsedKmLimit =
+      kmLimitPerDay !== undefined && kmLimitPerDay !== "" ? Math.max(0, Number(kmLimitPerDay)) : vehicle.kmLimitPerDay;
+
+    // ---------- Update fields safely ----------
     vehicle.modelName = modelName || vehicle.modelName;
     vehicle.brand = brand || vehicle.brand;
-    vehicle.rentPerDay = rentPerDay || vehicle.rentPerDay;
-    vehicle.totalQuantity = totalQuantity || vehicle.totalQuantity;
+    vehicle.rentPerDay = parsedRent;
+    vehicle.totalQuantity = parsedQuantity;
     vehicle.type = type ? type.toLowerCase() : vehicle.type;
     vehicle.location = { city: city || vehicle.location?.city };
+    vehicle.kmLimitPerDay = parsedKmLimit;
 
-    // ✅ New images (replace old)
+    // ---------- New images (replace old) ----------
     if (req.files && req.files.length > 0) {
+      // upload each file.buffer to Cloudinary like your POST handler does
       const newUrls = await Promise.all(
         req.files.map((f) => uploadToCloudinary(f.buffer, "vehicles"))
       );
-      vehicle.images = newUrls;
+      // filter out any null uploads just in case
+      vehicle.images = newUrls.filter(Boolean);
     }
 
     await vehicle.save();
@@ -158,6 +175,7 @@ router.put("/:id", verifyMainAdmin, upload.array("images", 5), async (req, res) 
     res.status(500).json({ success: false, message: "Update failed", error: err.message });
   }
 });
+
 
 /* --------------------------------------------------------------------------
  * 🗑️ DELETE /api/vehicles/:id — Delete vehicle (Main Admin only)

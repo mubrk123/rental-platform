@@ -122,8 +122,26 @@ const UploadedVehicles = () => {
   };
 
   // ✅ Handle input and image change
-  const handleFormChange = (e) =>
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleFormChange = (e) => {
+  const { name, value } = e.target;
+
+  // Handle numeric fields safely
+  if (["rentPerDay", "totalQuantity", "kmLimitPerDay"].includes(name)) {
+    if (value === "" || value === "-") {
+      setFormData({ ...formData, [name]: value });
+      return;
+    }
+
+    const num = Number(value);
+    if (!isNaN(num) && num >= 0) {
+      setFormData({ ...formData, [name]: num });
+    }
+    return;
+  }
+
+  // Handle text/select inputs
+  setFormData({ ...formData, [name]: value });
+};
 
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
@@ -137,9 +155,20 @@ const handleUpdate = async (e) => {
   if (!editingVehicle) return;
 
   const data = new FormData();
-  Object.entries(formData).forEach(([key, value]) =>
-    data.append(key, value)
-  );
+
+  // ✅ Convert numeric fields to string before appending
+  Object.entries(formData).forEach(([key, value]) => {
+    if (value === undefined || value === null) return;
+
+    // Always convert numbers to strings for FormData
+    if (typeof value === "number") {
+      data.append(key, value.toString());
+    } else {
+      data.append(key, value);
+    }
+  });
+
+  // ✅ Add image files
   images.forEach((img) => data.append("images", img));
 
   try {
@@ -157,14 +186,14 @@ const handleUpdate = async (e) => {
     if (res.data?.success) {
       toast.success("✅ Vehicle updated successfully!");
 
-      // 🧠 Re-fetch the updated vehicle to get the latest data
+      // 🧠 Fetch the updated vehicle to refresh state
       const updatedRes = await axios.get(
         `${import.meta.env.VITE_API_URL}/vehicles/${editingVehicle._id}`,
         { headers: adminHeaders }
       );
       const updatedVehicle = updatedRes.data;
 
-      // ✅ Update that specific vehicle in both states
+      // ✅ Update vehicle lists
       setVehicles((prev) =>
         prev.map((v) =>
           v._id === editingVehicle._id ? updatedVehicle : v
@@ -409,104 +438,155 @@ const handleUpdate = async (e) => {
             </h2>
 
             <form onSubmit={handleUpdate} className="space-y-4">
-              {[
-                ["Model Name", "modelName", "text"],
-                ["Brand", "brand", "text"],
-                ["Rent Per Day (₹)", "rentPerDay", "number"],
-                ["Total Quantity", "totalQuantity", "number"],
-              ].map(([label, name, type]) => (
-                <div key={name}>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {label}
-                  </label>
-                  <input
-                    type={type}
-                    name={name}
-                    value={formData[name]}
-                    onChange={handleFormChange}
-                    className="border rounded-lg p-2 w-full"
-                    required
-                  />
-                </div>
-              ))}
+  {/* 🧠 Model Name */}
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      Model Name
+    </label>
+    <input
+      type="text"
+      name="modelName"
+      value={formData.modelName}
+      onChange={handleFormChange}
+      className="border rounded-lg p-2 w-full"
+      required
+    />
+  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  City
-                </label>
-                <select
-                  name="city"
-                  value={formData.city}
-                  onChange={handleFormChange}
-                  className="border rounded-lg p-2 w-full"
-                >
-                  {LOCATIONS.filter((l) => l !== "All Locations").map((loc) => (
-                    <option key={loc}>{loc}</option>
-                  ))}
-                </select>
-              </div>
+  {/* 🧠 Brand */}
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      Brand
+    </label>
+    <input
+      type="text"
+      name="brand"
+      value={formData.brand}
+      onChange={handleFormChange}
+      className="border rounded-lg p-2 w-full"
+      required
+    />
+  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Type
-                </label>
-                <select
-                  name="type"
-                  value={formData.type}
-                  onChange={handleFormChange}
-                  className="border rounded-lg p-2 w-full"
-                >
-                  <option value="bike">Bike</option>
-                  <option value="scooter">Scooter</option>
-                </select>
-              </div>
-<div>
-  <label className="block text-sm font-medium text-gray-700 mb-1">
-    KM Limit Per Day
-  </label>
-  <input
-    type="number"
-    name="kmLimitPerDay"
-    value={formData.kmLimitPerDay}
-    onChange={handleFormChange}
-    className="border rounded-lg p-2 w-full"
-    placeholder="e.g. 150"
-    required
-  />
-</div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Upload Images (optional)
-                </label>
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={handleImageChange}
-                  className="border rounded-lg p-2 w-full"
-                />
-              </div>
+  {/* 🧠 Rent Per Day */}
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      Rent Per Day (₹)
+    </label>
+    <input
+      type="number"
+      name="rentPerDay"
+      min="0"
+      value={formData.rentPerDay}
+      onChange={handleFormChange}
+      className="border rounded-lg p-2 w-full"
+      required
+    />
+  </div>
 
-              {preview.length > 0 && (
-                <div className="grid grid-cols-2 gap-3 mt-2">
-                  {preview.map((src, i) => (
-                    <img
-                      key={i}
-                      src={src}
-                      alt={`preview-${i}`}
-                      className="w-full h-28 object-cover rounded-md border"
-                    />
-                  ))}
-                </div>
-              )}
+  {/* 🧠 Total Quantity */}
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      Total Quantity
+    </label>
+    <input
+      type="number"
+      name="totalQuantity"
+      min="0"
+      value={formData.totalQuantity}
+      onChange={handleFormChange}
+      className="border rounded-lg p-2 w-full"
+      required
+    />
+  </div>
 
-              <button
-                type="submit"
-                className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 flex items-center justify-center gap-2"
-              >
-                <UploadCloud className="w-4 h-4" /> Save Changes
-              </button>
-            </form>
+  {/* 🧠 City */}
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      City
+    </label>
+    <select
+      name="city"
+      value={formData.city}
+      onChange={handleFormChange}
+      className="border rounded-lg p-2 w-full"
+    >
+      {LOCATIONS.filter((l) => l !== "All Locations").map((loc) => (
+        <option key={loc}>{loc}</option>
+      ))}
+    </select>
+  </div>
+
+  {/* 🧠 Type */}
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      Type
+    </label>
+    <select
+      name="type"
+      value={formData.type}
+      onChange={handleFormChange}
+      className="border rounded-lg p-2 w-full"
+    >
+      <option value="bike">Bike</option>
+      <option value="scooter">Scooter</option>
+    </select>
+  </div>
+
+  {/* 🧠 KM Limit Per Day */}
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      KM Limit Per Day
+    </label>
+    <input
+      type="number"
+      name="kmLimitPerDay"
+      min="0"
+      value={formData.kmLimitPerDay}
+      onChange={handleFormChange}
+      className="border rounded-lg p-2 w-full"
+      placeholder="e.g. 150"
+      required
+    />
+  </div>
+
+  {/* 🧠 Upload Images */}
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      Upload Images (optional)
+    </label>
+    <input
+      type="file"
+      multiple
+      accept="image/*"
+      onChange={handleImageChange}
+      className="border rounded-lg p-2 w-full"
+    />
+  </div>
+
+  {/* 🧠 Preview */}
+  {preview.length > 0 && (
+    <div className="grid grid-cols-2 gap-3 mt-2">
+      {preview.map((src, i) => (
+        <img
+          key={i}
+          src={src}
+          alt={`preview-${i}`}
+          className="w-full h-28 object-cover rounded-md border"
+        />
+      ))}
+    </div>
+  )}
+
+  {/* 🧠 Save Button */}
+  <button
+    type="submit"
+    className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 flex items-center justify-center gap-2"
+  >
+    <UploadCloud className="w-4 h-4" /> Save Changes
+  </button>
+</form>
+
           </div>
         </div>
       )}

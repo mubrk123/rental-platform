@@ -26,20 +26,36 @@ export const createVehicle = async (req, res) => {
       totalQuantity,
       city,
       type,
-      kmLimitPerDay, // ✅ Added
+      kmLimitPerDay,
     } = req.body;
 
     const normalizedType = type?.toLowerCase();
     const imagePaths = req.files ? req.files.map((file) => file.path) : [];
 
+    // ✅ Safe numeric parsing for creation
+    const parsedRent =
+      rentPerDay !== undefined && rentPerDay !== ""
+        ? Math.round(Number(rentPerDay))
+        : 0;
+
+    const parsedQuantity =
+      totalQuantity !== undefined && totalQuantity !== ""
+        ? Math.max(0, Number(totalQuantity))
+        : 0;
+
+    const parsedKmLimit =
+      kmLimitPerDay !== undefined && kmLimitPerDay !== ""
+        ? Math.max(0, Number(kmLimitPerDay))
+        : 150;
+
     const newVehicle = await Vehicle.create({
       modelName,
       brand,
-      rentPerDay,
-      totalQuantity,
+      rentPerDay: parsedRent,
+      totalQuantity: parsedQuantity,
       bookedQuantity: 0,
       type: normalizedType,
-      kmLimitPerDay: kmLimitPerDay || 150, // ✅ Default fallback
+      kmLimitPerDay: parsedKmLimit,
       location: { city },
       images: imagePaths,
     });
@@ -156,7 +172,7 @@ export const updateVehicle = async (req, res) => {
       totalQuantity,
       city,
       type,
-      kmLimitPerDay, // ✅ Added
+      kmLimitPerDay,
     } = req.body;
 
     const vehicle = await Vehicle.findById(id);
@@ -166,14 +182,30 @@ export const updateVehicle = async (req, res) => {
         message: "Vehicle not found",
       });
 
+    // ✅ Safe numeric casting
+    const parsedRent =
+      rentPerDay !== undefined && rentPerDay !== ""
+        ? Math.round(Number(rentPerDay))
+        : vehicle.rentPerDay;
+
+    const parsedQuantity =
+      totalQuantity !== undefined && totalQuantity !== ""
+        ? Math.max(0, Number(totalQuantity))
+        : vehicle.totalQuantity;
+
+    const parsedKmLimit =
+      kmLimitPerDay !== undefined && kmLimitPerDay !== ""
+        ? Math.max(0, Number(kmLimitPerDay))
+        : vehicle.kmLimitPerDay;
+
     // ✅ Update details
     vehicle.modelName = modelName || vehicle.modelName;
     vehicle.brand = brand || vehicle.brand;
-    vehicle.rentPerDay = rentPerDay || vehicle.rentPerDay;
-    vehicle.totalQuantity = totalQuantity || vehicle.totalQuantity;
+    vehicle.rentPerDay = parsedRent;
+    vehicle.totalQuantity = parsedQuantity;
     vehicle.type = type ? type.toLowerCase() : vehicle.type;
     vehicle.location = { city: city || vehicle.location?.city };
-    vehicle.kmLimitPerDay = kmLimitPerDay || vehicle.kmLimitPerDay || 150; // ✅ Added
+    vehicle.kmLimitPerDay = parsedKmLimit;
 
     // ✅ Handle new image uploads (if any)
     if (req.files && req.files.length > 0) {
