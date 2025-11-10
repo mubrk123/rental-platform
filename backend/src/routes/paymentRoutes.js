@@ -21,7 +21,7 @@ router.post("/create-order", async (req, res) => {
     const end = new Date(dropoffDate);
     const days = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
     const baseAmount = days * Number(pricePerDay || 0);
-    const taxes = Math.round(baseAmount * 0.1);
+    const taxes = Math.round(baseAmount * 0.18);
     const handling = 10;
     const totalAmount = baseAmount + taxes + handling;
 
@@ -134,43 +134,50 @@ router.post(
       }
 
       // ✅ HANDLER + ADMIN ALERTS
-      try {
-        const locKey = city?.trim().toLowerCase();
-        const locData = pickupLocations[locKey] || {};
-        const handlerNumber = locData.handlerPhone || process.env.DEFAULT_HANDLER_NUMBER;
-        const adminNumber = process.env.MAIN_ADMIN_NUMBER;
+try {
+  const locKey = city?.trim().toLowerCase();
+  const locData = pickupLocations[locKey] || {};
+  const handlerNumber = locData.handlerPhone || process.env.DEFAULT_HANDLER_NUMBER;
+  const adminNumber = process.env.MAIN_ADMIN_NUMBER;
 
-        // 🔹 Send handler alert
-        if (handlerNumber) {
-          await sendWhatsAppTemplate(handlerNumber, "BOOKING_ALERT_HANDLER", {
-            1: locData.name || city,
-            2: name,
-            3: "+91" + phoneNumber,
-            4: email,
-            5: vehicle?.modelName || "Bike",
-            6: pickupDate,
-            7: dropoffDate,
-          });
-          console.log(`✅ Handler alert sent to ${handlerNumber}`);
-        }
+  // 🔹 WhatsApp notifications (keep existing)
+  if (handlerNumber) {
+    await sendWhatsAppTemplate(handlerNumber, "BOOKING_ALERT_HANDLER", {
+      1: locData.name || city,
+      2: name,
+      3: "+91" + phoneNumber,
+      4: email,
+      5: vehicle?.modelName || "Bike",
+      6: pickupDate,
+      7: dropoffDate,
+    });
+  }
 
-        // 🔹 Send admin alert
-        if (adminNumber) {
-          await sendWhatsAppTemplate(adminNumber, "BOOKING_ALERT_ADMIN", {
-            1: city,
-            2: name,
-            3: "+91" + phoneNumber,
-            4: email,
-            5: vehicle?.modelName || "Bike",
-            6: pickupDate,
-            7: dropoffDate,
-            8: locData.name || "Unknown Handler",
-          });
-          console.log(`✅ Admin alert sent to ${adminNumber}`);
-        }
-      } catch (err) {
-        console.warn("⚠️ Handler/Admin WhatsApp alerts failed:", err.message);
-      }
+  if (adminNumber) {
+    await sendWhatsAppTemplate(adminNumber, "BOOKING_ALERT_ADMIN", {
+      1: city,
+      2: name,
+      3: "+91" + phoneNumber,
+      4: email,
+      5: vehicle?.modelName || "Bike",
+      6: pickupDate,
+      7: dropoffDate,
+      8: locData.name || "Unknown Handler",
+    });
+  }
+
+  // ✅ Add SMS alerts too
+  const smsMessage = `🚨 New booking received:\n` +
+    `Name: ${name}\nPhone: +91${phoneNumber}\nEmail: ${email}\n` +
+    `Vehicle: ${vehicle?.modelName || "Bike"}\nPickup: ${pickupDate}\nDropoff: ${dropoffDate}\nCity: ${city}`;
+    
+  if (handlerNumber) await sendSMS(handlerNumber, smsMessage);
+  if (adminNumber) await sendSMS(adminNumber, smsMessage);
+
+} catch (err) {
+  console.warn("⚠️ Handler/Admin alerts failed:", err.message);
+}
+
 
       // ✅ EMAIL CONFIRMATION
       if (email) {

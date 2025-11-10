@@ -1,12 +1,9 @@
 import express from "express";
-import { sendWhatsAppTemplate } from "../utils/notifyUser.js";
+import { sendSMS } from "../utils/twilioClient.js";
 
 const router = express.Router();
 const otpStore = new Map();
 
-/**
- * Send OTP via WhatsApp Template
- */
 router.post("/send", async (req, res) => {
   try {
     const { phoneNumber } = req.body;
@@ -16,14 +13,14 @@ router.post("/send", async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000);
     otpStore.set(phoneNumber, { otp, createdAt: Date.now() });
 
-    // ✅ Send OTP using Twilio template
-    await sendWhatsAppTemplate(phoneNumber, "OTP", { 1: otp });
+    // ✅ Send OTP via SMS
+    const message = `Your NewBikeWorld verification code is ${otp}. Do not share it with anyone.`;
+    await sendSMS(phoneNumber, message);
 
-
-    res.json({ success: true, message: "OTP sent on WhatsApp successfully" });
+    res.json({ success: true, message: "OTP sent via SMS successfully" });
   } catch (error) {
     console.error("OTP send error:", error);
-    res.status(500).json({ success: false, message: "Failed to send OTP via WhatsApp" });
+    res.status(500).json({ success: false, message: "Failed to send OTP via SMS" });
   }
 });
 

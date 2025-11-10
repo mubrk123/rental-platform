@@ -98,7 +98,7 @@ const BookingPage = () => {
       note = `Charged ${chargedHours} extra hour(s)`;
     }
 
-    const taxes = Math.round(subtotal * 0.1);
+    const taxes = Math.round(subtotal * 0.18);
     const total = Math.round(subtotal + taxes + 10);
     return { chargedDays, chargedHours, subtotal, taxes, handling: 10, total, note };
   };
@@ -117,8 +117,8 @@ const BookingPage = () => {
     if (!file) return;
 
     if (file.size > 4 * 1024 * 1024) return toast.error("File too large (max 4MB)");
-    if (!["image/jpeg", "image/png", "application/pdf"].includes(file.type))
-      return toast.error("Invalid file type (JPG, PNG, or PDF only)");
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type))
+      return toast.error("Invalid file type (JPG, PNG, JPEG only)");
 
     setForm({ ...form, [name]: file });
   };
@@ -130,7 +130,7 @@ const BookingPage = () => {
 
     try {
       await axios.post(`${import.meta.env.VITE_API_URL}/otp/send`, { phoneNumber: form.phoneNumber });
-      toast.success("OTP sent to WhatsApp");
+      toast.success("OTP sent to SMS");
       setOtpSent(true);
       setTimer(30);
       const countdown = setInterval(() => {
@@ -357,7 +357,7 @@ const BookingPage = () => {
               <p>Days charged: <span className="float-right">{chargedDays}</span></p>
               {chargedHours > 0 && <p>Extra hours charged: <span className="float-right">{chargedHours}</span></p>}
               <p className="mt-2">Subtotal: <span className="float-right">₹{subtotal}</span></p>
-              <p>Taxes & Fees (10%): <span className="float-right">₹{taxes}</span></p>
+              <p>Taxes & Fees (18%): <span className="float-right">₹{taxes}</span></p>
               <p>Handling Charges: <span className="float-right">₹{handling}</span></p>
               <p className="font-semibold text-lg mt-2">Total Payable: <span className="float-right font-bold text-white">₹{total}</span></p>
               {note && <p className="text-xs mt-2 opacity-90"><em>{note}</em></p>}
@@ -378,7 +378,7 @@ const FileUpload = ({ label, name, file, onChange }) => (
         <Upload className={`w-4 h-4 ${file ? "text-green-600" : "text-blue-600"}`} />
         <span>{file ? `✅ ${file.name}` : "Upload File"}</span>
       </div>
-      <input id={name} type="file" name={name} accept="image/*,.pdf" onChange={onChange} className="hidden" required />
+      <input id={name} type="file" name={name} accept="image/jpeg, image/png, image/webp" onChange={onChange} className="hidden" required />
     </label>
   </div>
 );
