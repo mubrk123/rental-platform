@@ -3,7 +3,7 @@ import { MapPin, Loader2 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 import Logo from "../assets/logo.jpg";
-import VehicleCard from "../components/VehicleCard"; // ✅ new component
+import VehicleCard from "../components/VehicleCard";
 
 const Vehicles = () => {
   const [vehicles, setVehicles] = useState([]);
@@ -43,6 +43,9 @@ const Vehicles = () => {
 
   const handleFilterChange = (key, value) =>
     setFilters((prev) => ({ ...prev, [key]: value }));
+
+  // --- ⬇️ NEW: auto-generate unique brands from DB ---
+  const uniqueBrands = [...new Set(vehicles.map((v) => v.brand))];
 
   const filteredVehicles = vehicles
     .filter((v) => {
@@ -119,6 +122,7 @@ const Vehicles = () => {
               </select>
             </div>
 
+            {/* BRAND FILTER — NOW DYNAMIC */}
             <div>
               <label className="font-semibold text-gray-800 mb-1 block">
                 Brand
@@ -128,10 +132,11 @@ const Vehicles = () => {
                 className="w-full p-2 rounded-md border border-gray-300 focus:ring-2 focus:ring-sky-500"
               >
                 <option value="">All Brands</option>
-                <option value="Hero">Hero</option>
-                <option value="Yamaha">Yamaha</option>
-                <option value="Honda">Honda</option>
-                <option value="Royal Enfield">Royal Enfield</option>
+                {uniqueBrands.map((brand) => (
+                  <option key={brand} value={brand}>
+                    {brand}
+                  </option>
+                ))}
               </select>
             </div>
 

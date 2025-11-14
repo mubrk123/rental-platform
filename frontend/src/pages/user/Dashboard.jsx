@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Menu, Search, Eye, X, Phone } from "lucide-react";
+import { Search, Eye, X, Phone } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import HeroImg from "../../assets/HeroImg4.png";
 import Logo from "../../assets/logo2.png";
 import axios from "axios";
-import SaleBikeCard from "../../components/SaleBikeCard"; // ✅ new import
+import SaleBikeCard from "../../components/SaleBikeCard";
 
 /* -------------------------------------------------------------------------- */
 /* 📍 Constants                                                               */
@@ -12,16 +12,15 @@ import SaleBikeCard from "../../components/SaleBikeCard"; // ✅ new import
 const LOCATIONS = [
   "All Locations",
   "Lalbagh",
-  "NagaVara",
+  "Nagavara",
   "Residency Road",
-  "Gandhi Nagar",
+  "Majestic (Gandhi Nagar)",
 ];
 
 /* -------------------------------------------------------------------------- */
-/* 🧭 Navbar Component                                                        */
+/* 🧭 Minimal Navbar Component (accepts onSaleClick prop to remain compatible) */
 /* -------------------------------------------------------------------------- */
 const Navbar = ({ onSaleClick }) => {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
@@ -32,68 +31,28 @@ const Navbar = ({ onSaleClick }) => {
 
   return (
     <header
-      className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 ${
-        isScrolled
-          ? "h-16 bg-white/85 backdrop-blur-lg shadow-md"
-          : "h-20 bg-white/70 backdrop-blur-md"
+      className={`w-full top-0 left-0 z-50 bg-white transition-shadow ${
+        isScrolled ? "shadow-sm" : ""
       }`}
     >
-      <div className="max-w-7xl mx-auto flex justify-between items-center px-6 h-full">
-        <div className="flex items-center">
-          <img
-            src={Logo}
-            alt="Logo"
-            className="w-14 h-14 mr-3 rounded-full shadow-md"
-          />
-          <span className="text-3xl font-extrabold tracking-tight">
-            <span className="text-[#0F172A]">NewBike</span>
-            <span className="text-sky-600">World</span>
-          </span>
-        </div>
-
-        <nav className="hidden md:flex items-center space-x-6">
-          <button
-            onClick={onSaleClick}
-            className="ml-4 bg-gradient-to-r from-[#0F172A] to-sky-600 text-white px-4 py-2 rounded-lg font-semibold shadow-md animate-pulse hover:from-[#1E293B] hover:to-sky-500 transition"
-          >
-            Bike for Sale
-          </button>
-          <a
-            href="tel:6202673708"
-            className="flex items-center gap-2 bg-sky-600 text-white px-4 py-2 rounded-lg font-semibold shadow-md hover:bg-sky-700 transition"
-          >
-            <Phone className="w-4 h-4" />
-            Contact Us
-          </a>
-        </nav>
-
-        <button
-          className="md:hidden p-2 rounded-lg text-gray-700 hover:bg-gray-100"
-          onClick={() => setIsMenuOpen(!isMenuOpen)}
-        >
-          <Menu className="w-6 h-6" />
-        </button>
-
-        {isMenuOpen && (
-          <div className="absolute top-16 left-0 w-full bg-white/90 backdrop-blur-md border-t border-gray-100 p-4 md:hidden animate-slideDown">
-            <button
-              onClick={() => {
-                onSaleClick();
-                setIsMenuOpen(false);
-              }}
-              className="mt-3 w-full bg-gradient-to-r from-[#0F172A] to-sky-600 text-white py-2 rounded-lg font-semibold hover:from-[#1E293B] hover:to-sky-500 transition"
-            >
-              Bike for Sale
-            </button>
+      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
+        <img
+          src={Logo}
+          alt="NewBikeWorld"
+          className="w-12 h-12 rounded-full object-cover shadow"
+        />
+        <div>
+          <div className="text-xl font-bold text-slate-900 leading-none">
+            NewBike<span className="text-sky-600">World</span>
           </div>
-        )}
+        </div>
       </div>
     </header>
   );
 };
 
 /* -------------------------------------------------------------------------- */
-/* 🔍 Search Widget                                                           */
+/* 🔍 Search Widget (with showPicker restored on all date/time inputs)         */
 /* -------------------------------------------------------------------------- */
 const SearchWidget = () => {
   const navigate = useNavigate();
@@ -106,17 +65,12 @@ const SearchWidget = () => {
   const [pickupLocation, setPickupLocation] = useState("");
   const [error, setError] = useState("");
 
-  /* ---------------------------------------------------------------------- */
-  /* 🕓 Time Restrictions (24-hr format)                                   */
-  /* ---------------------------------------------------------------------- */
   useEffect(() => {
     const now = new Date();
     const todayStr = now.toISOString().split("T")[0];
 
-    // Default earliest pickup time
     let minPickup = "08:00";
 
-    // If booking today → 1 hour from now
     if (pickupDate === todayStr) {
       const nextHour = new Date(now.getTime() + 60 * 60 * 1000);
       const hrs = nextHour.getHours().toString().padStart(2, "0");
@@ -128,9 +82,6 @@ const SearchWidget = () => {
     if (dropoffTime && dropoffTime > "23:30") setDropoffTime("23:30");
   }, [pickupDate, pickupTime, dropoffTime]);
 
-  /* ---------------------------------------------------------------------- */
-  /* ✅ Validation + Navigation                                             */
-  /* ---------------------------------------------------------------------- */
   const validate = () => {
     if (!pickupLocation) return "Please select a pickup location.";
     if (!pickupDate || !pickupTime) return "Please select pickup date & time.";
@@ -165,9 +116,6 @@ const SearchWidget = () => {
     navigate(`/vehicles?${query}`);
   };
 
-  /* ---------------------------------------------------------------------- */
-  /* 🖥️ Desktop + 📱 Mobile (shifted lower in mobile)                       */
-  /* ---------------------------------------------------------------------- */
   return (
     <>
       {/* Desktop */}
@@ -186,7 +134,7 @@ const SearchWidget = () => {
           <select
             value={pickupLocation}
             onChange={(e) => setPickupLocation(e.target.value)}
-            className="w-full p-3 rounded-md bg-gray-100 focus:ring-2 focus:ring-sky-400 focus:bg-white transition-all cursor-pointer"
+            className="w-full p-3 rounded-md bg-gray-100"
           >
             <option value="">Pickup Location</option>
             {LOCATIONS.map((loc) => (
@@ -195,7 +143,6 @@ const SearchWidget = () => {
           </select>
 
           <div className="grid grid-cols-2 gap-3">
-            {/* Pickup Date */}
             <div>
               <label className="block text-sm font-semibold mb-1 text-gray-700">
                 Pickup Date
@@ -210,7 +157,6 @@ const SearchWidget = () => {
               />
             </div>
 
-            {/* Pickup Time */}
             <div>
               <label className="block text-sm font-semibold mb-1 text-gray-700">
                 Pickup Time
@@ -222,9 +168,7 @@ const SearchWidget = () => {
                 onFocus={(e) => e.target.showPicker?.()}
                 min={
                   pickupDate === today
-                    ? new Date(Date.now() + 3600000)
-                        .toISOString()
-                        .slice(11, 16)
+                    ? new Date(Date.now() + 3600000).toISOString().slice(11, 16)
                     : "08:00"
                 }
                 max="23:30"
@@ -232,7 +176,6 @@ const SearchWidget = () => {
               />
             </div>
 
-            {/* Drop-off Date */}
             <div>
               <label className="block text-sm font-semibold mb-1 text-gray-700">
                 Drop-off Date
@@ -247,7 +190,6 @@ const SearchWidget = () => {
               />
             </div>
 
-            {/* Drop-off Time */}
             <div>
               <label className="block text-sm font-semibold mb-1 text-gray-700">
                 Drop-off Time
@@ -266,7 +208,7 @@ const SearchWidget = () => {
 
           <button
             onClick={handleSearch}
-            className="w-full py-3 mt-2 bg-sky-600 text-white text-[15px] font-semibold rounded-md hover:bg-sky-700 hover:scale-[1.05] transition-transform shadow-md"
+            className="w-full py-3 mt-2 bg-sky-600 text-white rounded-md shadow-md hover:bg-sky-700"
           >
             Search Bikes
           </button>
@@ -284,7 +226,7 @@ const SearchWidget = () => {
           <select
             value={pickupLocation}
             onChange={(e) => setPickupLocation(e.target.value)}
-            className="bg-transparent border border-white/60 rounded-md px-3 py-2 text-sm placeholder-white focus:bg-white/20 focus:border-sky-300 outline-none cursor-pointer"
+            className="bg-transparent border border-white/60 rounded-md px-3 py-2 text-sm"
           >
             <option value="">Pickup Location</option>
             {LOCATIONS.map((loc) => (
@@ -293,26 +235,20 @@ const SearchWidget = () => {
           </select>
 
           <div className="grid grid-cols-2 gap-2">
-            {/* Pickup Date */}
             <div>
-              <label className="block text-xs mb-1 text-white/90">
-                Pickup Date
-              </label>
+              <label className="block text-xs mb-1">Pickup Date</label>
               <input
                 type="date"
                 min={today}
                 value={pickupDate}
                 onChange={(e) => setPickupDate(e.target.value)}
                 onFocus={(e) => e.target.showPicker?.()}
-                className="bg-transparent border border-white/60 rounded-md px-2 py-2 text-sm text-white focus:bg-white/20 outline-none w-full cursor-pointer"
+                className="bg-transparent border border-white/60 rounded-md px-2 py-2 text-sm w-full"
               />
             </div>
 
-            {/* Pickup Time */}
             <div>
-              <label className="block text-xs mb-1 text-white/90">
-                Pickup Time
-              </label>
+              <label className="block text-xs mb-1">Pickup Time</label>
               <input
                 type="time"
                 value={pickupTime}
@@ -320,36 +256,28 @@ const SearchWidget = () => {
                 onFocus={(e) => e.target.showPicker?.()}
                 min={
                   pickupDate === today
-                    ? new Date(Date.now() + 3600000)
-                        .toISOString()
-                        .slice(11, 16)
+                    ? new Date(Date.now() + 3600000).toISOString().slice(11, 16)
                     : "08:00"
                 }
                 max="23:30"
-                className="bg-transparent border border-white/60 rounded-md px-2 py-2 text-sm text-white focus:bg-white/20 outline-none w-full cursor-pointer"
+                className="bg-transparent border border-white/60 rounded-md px-2 py-2 text-sm w-full"
               />
             </div>
 
-            {/* Drop-off Date */}
             <div>
-              <label className="block text-xs mb-1 text-white/90">
-                Drop-off Date
-              </label>
+              <label className="block text-xs mb-1">Drop-off Date</label>
               <input
                 type="date"
                 min={pickupDate}
                 value={dropoffDate}
                 onChange={(e) => setDropoffDate(e.target.value)}
                 onFocus={(e) => e.target.showPicker?.()}
-                className="bg-transparent border border-white/60 rounded-md px-2 py-2 text-sm text-white focus:bg-white/20 outline-none w-full cursor-pointer"
+                className="bg-transparent border border-white/60 rounded-md px-2 py-2 text-sm w-full"
               />
             </div>
 
-            {/* Drop-off Time */}
             <div>
-              <label className="block text-xs mb-1 text-white/90">
-                Drop-off Time
-              </label>
+              <label className="block text-xs mb-1">Drop-off Time</label>
               <input
                 type="time"
                 value={dropoffTime}
@@ -357,7 +285,7 @@ const SearchWidget = () => {
                 onFocus={(e) => e.target.showPicker?.()}
                 min="08:00"
                 max="23:30"
-                className="bg-transparent border border-white/60 rounded-md px-2 py-2 text-sm text-white focus:bg-white/20 outline-none w-full cursor-pointer"
+                className="bg-transparent border border-white/60 rounded-md px-2 py-2 text-sm w-full"
               />
             </div>
           </div>
@@ -404,6 +332,7 @@ const LandingPage = () => {
           style={{ backgroundImage: `url(${HeroImg})` }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-[#0F172A]/70 via-sky-900/40 to-transparent" />
+
         <div className="relative z-10 mt-[-4rem]">
           <h1 className="text-4xl sm:text-5xl md:text-7xl font-extrabold text-white drop-shadow-lg mb-4 tracking-wide">
             YOUR JOURNEY{" "}
@@ -418,14 +347,15 @@ const LandingPage = () => {
 
         <div className="relative z-20 w-full flex flex-col justify-center items-center mt-9 space-y-2">
           <SearchWidget />
-          <div className="block md:hidden">
-            <button
-              onClick={scrollToCollections}
-              className="bg-gradient-to-r from-[#0F172A] to-sky-600 text-white py-2 px-6 rounded-lg font-semibold shadow-md hover:from-[#1E293B] hover:to-sky-500 transition text-sm animate-pulse"
-            >
-              We also sell Bikes — Check Out!
-            </button>
-          </div>
+
+          {/* Contact Us Moved to Hero Section */}
+          <a
+            href="tel:8024485960"
+            className="mt-4 bg-sky-600 text-white px-6 py-3 rounded-lg font-semibold shadow-md hover:bg-sky-700 flex items-center gap-2"
+          >
+            <Phone className="w-4 h-4" />
+            Contact Us
+          </a>
         </div>
 
         <svg
@@ -476,7 +406,7 @@ const LandingPage = () => {
             </button>
           </div>
 
-          {/* ✅ Cards replaced with SaleBikeCard */}
+          {/* Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10 mt-6 max-w-6xl mx-auto">
             {salePreview.length === 0 ? (
               <p className="col-span-full text-gray-600">
@@ -484,154 +414,159 @@ const LandingPage = () => {
               </p>
             ) : (
               salePreview.map((b) => (
-                // <SaleBikeCard
-                //   key={b._id}
-                //   bike={b}
-                //   onView={(bike) => setSelectedSaleBike(bike)}
-                //   onImageClick={(img) => setImageModalSrc(img)}
-                // />
                 <SaleBikeCard
-  key={b._id}
-  bike={b}
-  onView={async (bike) => {
-  try {
-    const res = await axios.get(`${import.meta.env.VITE_API_URL}/sale-bikes/${bike._id}`);
-    setSelectedSaleBike(res.data.bike);
-  } catch (err) {
-    console.error("Failed to fetch bike details:", err);
-    alert("Unable to load full details. Please try again.");
-  }
-}}
-
-  onImageClick={(img) => setImageModalSrc(img)}
-  isAdmin={false}
-/>
-
+                  key={b._id}
+                  bike={b}
+                  onView={async (bike) => {
+                    try {
+                      const res = await axios.get(
+                        `${import.meta.env.VITE_API_URL}/sale-bikes/${bike._id}`
+                      );
+                      setSelectedSaleBike(res.data.bike);
+                    } catch (err) {
+                      console.error("Failed to fetch bike details:", err);
+                      alert("Unable to load full details. Please try again.");
+                    }
+                  }}
+                  onImageClick={(img) => setImageModalSrc(img)}
+                  isAdmin={false}
+                />
               ))
             )}
           </div>
         </div>
       </section>
-      {/* BIKE DETAILS MODAL */}
-{selectedSaleBike && (
-  <div
-    className="fixed inset-0 bg-black/70 flex items-center justify-center z-[70] p-4 overflow-auto"
-    onClick={() => setSelectedSaleBike(null)}
-  >
-    <div
-      onClick={(e) => e.stopPropagation()}
-      className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-xl relative text-gray-800"
-    >
-      {/* Close Button */}
-      <button
-        onClick={() => setSelectedSaleBike(null)}
-        className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
-      >
-        ✕
-      </button>
 
-      {/* Bike Images */}
-      {selectedSaleBike.images?.length > 0 ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
-          {selectedSaleBike.images.map((img, idx) => (
-            <img
-              key={idx}
-              src={img}
-              alt={`Bike ${idx + 1}`}
-              className="w-full h-36 object-cover rounded-md border border-gray-200"
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="w-full h-36 bg-gray-100 rounded-md mb-4 flex items-center justify-center text-gray-400">
-          No Images Available
-        </div>
-      )}
-
-      {/* Details Section */}
-      <h2 className="text-2xl font-bold text-sky-800 mb-2">
-        {selectedSaleBike.brand} {selectedSaleBike.modelName}
-      </h2>
-      <p className="text-lg font-semibold text-gray-700 mb-3">
-        ₹{selectedSaleBike.price?.toLocaleString()}
-      </p>
-
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-2 text-sm mb-4">
-        {selectedSaleBike.year && (
-          <p><span className="font-semibold">Year:</span> {selectedSaleBike.year}</p>
-        )}
-        {selectedSaleBike.owner && (
-          <p><span className="font-semibold">Owner:</span> {selectedSaleBike.owner}</p>
-        )}
-        {selectedSaleBike.kmsDriven && (
-          <p><span className="font-semibold">Driven:</span> {selectedSaleBike.kmsDriven} km</p>
-        )}
-        {selectedSaleBike.registrationNumber && (
-          <p><span className="font-semibold">Reg No:</span> {selectedSaleBike.registrationNumber}</p>
-        )}
-        {selectedSaleBike.fuelType && (
-          <p><span className="font-semibold">Fuel Type:</span> {selectedSaleBike.fuelType}</p>
-        )}
-        {selectedSaleBike.color && (
-          <p><span className="font-semibold">Color:</span> {selectedSaleBike.color}</p>
-        )}
-        {selectedSaleBike.condition && (
-          <p><span className="font-semibold">Condition:</span> {selectedSaleBike.condition}</p>
-        )}
-      </div>
-
-      {/* Description */}
-      {selectedSaleBike.description && (
-        <p className="text-gray-600 mb-5 leading-relaxed">
-          {selectedSaleBike.description}
-        </p>
-      )}
-
-      {/* Buttons */}
-      <div className="flex flex-col sm:flex-row gap-3 mt-4">
-        <button
+      {/* BIKE MODAL */}
+      {selectedSaleBike && (
+        <div
+          className="fixed inset-0 bg-black/70 flex items-center justify-center z-[70] p-4 overflow-auto"
           onClick={() => setSelectedSaleBike(null)}
-          className="flex-1 bg-sky-600 text-white py-2 rounded-lg font-semibold hover:bg-sky-700 transition-all"
         >
-          Close
-        </button>
-        <button
-          onClick={() => alert('📞 Contact Seller form coming soon!')}
-          className="flex-1 bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700 transition-all"
-        >
-          Contact Seller
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-xl relative text-gray-800"
+          >
+            <button
+              onClick={() => setSelectedSaleBike(null)}
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+            >
+              ✕
+            </button>
 
+            {selectedSaleBike.images?.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+                {selectedSaleBike.images.map((img, idx) => (
+                  <img
+                    key={idx}
+                    src={img}
+                    alt={`Bike ${idx + 1}`}
+                    className="w-full h-36 object-cover rounded-md border"
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="w-full h-36 bg-gray-100 rounded-md mb-4 flex items-center justify-center text-gray-400">
+                No Images Available
+              </div>
+            )}
 
+            <h2 className="text-2xl font-bold text-sky-800 mb-2">
+              {selectedSaleBike.brand} {selectedSaleBike.modelName}
+            </h2>
+            <p className="text-lg font-semibold text-gray-700 mb-3">
+              ₹{selectedSaleBike.price?.toLocaleString()}
+            </p>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-2 text-sm mb-4">
+              {selectedSaleBike.year && (
+                <p>
+                  <span className="font-semibold">Year:</span>{" "}
+                  {selectedSaleBike.year}
+                </p>
+              )}
+              {selectedSaleBike.owner && (
+                <p>
+                  <span className="font-semibold">Owner:</span>{" "}
+                  {selectedSaleBike.owner}
+                </p>
+              )}
+              {selectedSaleBike.kmsDriven && (
+                <p>
+                  <span className="font-semibold">Driven:</span>{" "}
+                  {selectedSaleBike.kmsDriven} km
+                </p>
+              )}
+              {selectedSaleBike.registrationNumber && (
+                <p>
+                  <span className="font-semibold">Reg No:</span>{" "}
+                  {selectedSaleBike.registrationNumber}
+                </p>
+              )}
+              {selectedSaleBike.fuelType && (
+                <p>
+                  <span className="font-semibold">Fuel Type:</span>{" "}
+                  {selectedSaleBike.fuelType}
+                </p>
+              )}
+              {selectedSaleBike.color && (
+                <p>
+                  <span className="font-semibold">Color:</span>{" "}
+                  {selectedSaleBike.color}
+                </p>
+              )}
+              {selectedSaleBike.condition && (
+                <p>
+                  <span className="font-semibold">Condition:</span>{" "}
+                  {selectedSaleBike.condition}
+                </p>
+              )}
+            </div>
+
+            {selectedSaleBike.description && (
+              <p className="text-gray-600 mb-5 leading-relaxed">
+                {selectedSaleBike.description}
+              </p>
+            )}
+
+            <div className="flex flex-col sm:flex-row gap-3 mt-4">
+              <button
+                onClick={() => setSelectedSaleBike(null)}
+                className="flex-1 bg-sky-600 text-white py-2 rounded-lg font-semibold hover:bg-sky-700 transition-all"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => alert("📞 Contact Seller form coming soon!")}
+                className="flex-1 bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700 transition-all"
+              >
+                Contact Seller
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ABOUT CITY */}
       <section className="bg-gradient-to-r from-sky-700 to-sky-500 text-white py-20 px-8 text-center">
-        <h2 className="text-3xl font-extrabold mb-6">
-          Bike Rentals in Bangalore
-        </h2>
+        <h2 className="text-3xl font-extrabold mb-6">Bike Rentals in Bangalore</h2>
         <div className="max-w-4xl mx-auto text-sm md:text-base leading-relaxed opacity-95">
           <p>
             Bangalore, the Garden City of India, offers perfect weather and
-            endless opportunities for exploration. Rent a bike and breeze
-            through the traffic while enjoying the city's beauty and freedom.
+            endless opportunities for exploration. Rent a bike and breeze through
+            the traffic while enjoying the city's beauty and freedom.
           </p>
           <p className="mt-4">
-            Whether you're visiting Cubbon Park, Nandi Hills, or MG Road —
-            riding with NewBikeWorld gives you flexibility, comfort, and the joy
-            of discovery.
+            Whether you're visiting Cubbon Park, Nandi Hills, or MG Road — riding
+            with NewBikeWorld gives you flexibility, comfort, and the joy of
+            discovery.
           </p>
         </div>
       </section>
 
       {/* FOOTER */}
       <footer className="bg-[#0F172A] text-white py-8 text-center">
-        <p className="text-sm">
-          &copy; 2024 NewBikeWorld. All rights reserved.
-        </p>
+        <p className="text-sm">&copy; 2024 NewBikeWorld. All rights reserved.</p>
       </footer>
 
       {/* IMAGE MODAL */}
@@ -652,7 +587,7 @@ const LandingPage = () => {
           <img
             src={imageModalSrc}
             alt="Zoomed Bike"
-            className="max-h-[90vh] w-auto rounded-lg shadow-lg object-contain transition-all"
+            className="max-h-[90vh] w-auto rounded-lg shadow-lg object-contain"
           />
         </div>
       )}

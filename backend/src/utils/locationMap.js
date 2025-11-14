@@ -18,8 +18,8 @@ export const pickupLocations = {
     link: "https://www.google.com/maps?q=12.9688081,77.6017841(New+Bike+World,+Residency+Road)&z=17",
     handlerPhone: "+919113699335",
   },
-  "gandhi nagar": {
-    name: "Gandhi Nagar",
+  "majestic (gandhi nagar)": {
+    name: "Majestic (Gandhi Nagar)",
     address: "FabHotel Royale Basant Residency, Gandhi Nagar, Bengaluru",
     link: "https://www.google.com/maps?q=12.978336,77.574905(FabHotel+Royale+Basant+Residency,+Gandhi+Nagar)&z=17",
     handlerPhone: "+919845382618",

@@ -58,37 +58,52 @@ const SaleBikesList = () => {
 
   // ✅ Save updated details
   const handleUpdate = async (e) => {
-    e.preventDefault();
-    if (!selectedBike) return;
+  e.preventDefault();
+  if (!selectedBike) return;
 
-    const data = new FormData();
-    Object.entries(formData).forEach(([key, val]) => data.append(key, val));
-    data.append("existingImages", JSON.stringify(existingImages));
-    newImages.forEach((file) => data.append("newImages", file));
+  const data = new FormData();
+  Object.entries(formData).forEach(([key, val]) => data.append(key, val));
+  data.append("existingImages", JSON.stringify(existingImages));
+  newImages.forEach((file) => data.append("newImages", file));
 
-    try {
-      await axios.put(
-        `${import.meta.env.VITE_API_URL}/sale-bikes/${selectedBike._id}`,
-        data,
-        { headers: { "Content-Type": "multipart/form-data" } }
-      );
-      alert("✅ Bike updated successfully!");
-      setEditMode(false);
-      setSelectedBike(null);
-
-      // Refresh only state (not full reload)
-      setBikes((prev) =>
-        prev.map((b) =>
-          b._id === selectedBike._id
-            ? { ...b, ...formData, images: [...existingImages, ...newImages.map((f) => URL.createObjectURL(f))] }
-            : b
-        )
-      );
-    } catch (err) {
-      console.error("Update failed:", err);
-      alert("❌ Failed to update bike details.");
+  try {
+    const token = localStorage.getItem("adminToken");
+    if (!token) {
+      alert("❌ Unauthorized: Please log in again as admin.");
+      return;
     }
-  };
+
+    await axios.put(
+      `${import.meta.env.VITE_API_URL}/sale-bikes/${selectedBike._id}`,
+      data,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    alert("✅ Bike updated successfully!");
+    setEditMode(false);
+    setSelectedBike(null);
+
+    // Refresh state with updated bike
+    const res = await axios.get(
+      `${import.meta.env.VITE_API_URL}/sale-bikes/${selectedBike._id}`
+    );
+    setBikes((prev) =>
+      prev.map((b) => (b._id === selectedBike._id ? res.data.bike : b))
+    );
+  } catch (err) {
+    console.error("Update failed:", err);
+    alert(
+      err.response?.data?.message ||
+        "❌ Failed to update bike details. Check console for details."
+    );
+  }
+};
+
 
   // ✅ Resolve image URLs
   const resolveImageUrl = (path) => {

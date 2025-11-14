@@ -7,7 +7,7 @@ const LOCATIONS = [
   "Lalbagh",
   "NagaVara",
   "Residency Road",
-  "Gandhi Nagar",
+  "Majestic (Gandhi Nagar)",
 ];
 
 const UploadVehicle = () => {

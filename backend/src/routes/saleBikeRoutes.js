@@ -95,20 +95,42 @@ router.get("/latest", async (req, res) => {
 router.put("/:id", verifyMainAdmin, upload.array("newImages", 10), async (req, res) => {
   try {
     const bike = await SaleBike.findById(req.params.id);
-    if (!bike)
-      return res.status(404).json({ success: false, message: "Bike not found" });
+    if (!bike) {
+      return res.status(404).json({
+        success: false,
+        message: "Bike not found",
+      });
+    }
 
+    // 🧩 Parse existing images
     const existingImages = req.body.existingImages
       ? JSON.parse(req.body.existingImages)
       : [];
+
+    // 🆕 Upload new images (if any)
     const newImagePaths = req.files?.length
-      ? await Promise.all(req.files.map((f) => uploadToCloudinary(f.buffer, "sale-bikes")))
+      ? await Promise.all(
+          req.files.map((f) => uploadToCloudinary(f, "sale-bikes"))
+        )
       : [];
 
+    // ✅ Update bike fields first (to avoid overwriting images)
+    Object.assign(bike, {
+      modelName: req.body.modelName || bike.modelName,
+      brand: req.body.brand || bike.brand,
+      price: req.body.price || bike.price,
+      description: req.body.description || bike.description,
+      year: req.body.year || bike.year,
+      mileage: req.body.mileage || bike.mileage,
+      condition: req.body.condition || bike.condition,
+      city: req.body.city || bike.city,
+    });
+
+    // ✅ Then safely set updated image array
     bike.images = [...existingImages, ...newImagePaths];
-    Object.assign(bike, req.body);
 
     await bike.save();
+
     res.json({
       success: true,
       message: "✅ Sale bike updated successfully",
@@ -116,7 +138,10 @@ router.put("/:id", verifyMainAdmin, upload.array("newImages", 10), async (req, r
     });
   } catch (err) {
     console.error("❌ sale-bikes update error:", err);
-    res.status(500).json({ success: false, message: "Failed to update sale bike" });
+    res.status(500).json({
+      success: false,
+      message: "Failed to update sale bike",
+    });
   }
 });
 
