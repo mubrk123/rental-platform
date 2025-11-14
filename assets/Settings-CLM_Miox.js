@@ -1,0 +1,1 @@
+import{j as e}from"./index-BUXaKORS.js";const s=()=>e.jsxs("div",{className:"bg-white p-6 rounded-lg shadow-md",children:[e.jsx("h1",{className:"text-2xl font-bold text-indigo-600 mb-4",children:"Settings"}),e.jsx("p",{className:"text-gray-600",children:"Configure your account, update payment preferences, and manage system settings here."})]});export{s as default};
