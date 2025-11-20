@@ -17,7 +17,7 @@ const BookingPage = () => {
   const dropoffTime = queryParams.get("dropoffTime") || "00:00";
 
   const [form, setForm] = useState({
-    userId: "123", // Replace later with real userId
+    userId: "123", // TODO: replace later
     name: "",
     email: "",
     phoneNumber: "",
@@ -35,15 +35,21 @@ const BookingPage = () => {
   const [vehicleLoading, setVehicleLoading] = useState(true);
   const [termsAccepted, setTermsAccepted] = useState(false);
 
-  // ---------------- Fetch Vehicle ----------------
+  // ⭐ Helmet count: 1 helmet free, 2 helmets = ₹50 + GST
+  const [helmetCount, setHelmetCount] = useState(1);
+
+  /* ------------------------------------
+        FETCH VEHICLE DETAILS
+  ------------------------------------ */
   useEffect(() => {
     const fetchVehicle = async () => {
       try {
-        const res = await axios.get(`${import.meta.env.VITE_API_URL}/vehicles/${id}`);
+        const res = await axios.get(
+          `${import.meta.env.VITE_API_URL}/vehicles/${id}`
+        );
         setVehicle(res.data);
       } catch (err) {
-        console.error("Error fetching vehicle:", err);
-        toast.error("Failed to load vehicle details.");
+        toast.error("Failed to load vehicle details");
       } finally {
         setVehicleLoading(false);
       }
@@ -51,27 +57,45 @@ const BookingPage = () => {
     fetchVehicle();
   }, [id]);
 
-  // ---------------- Price Calculation ----------------
-  const computePrice = (rentPerDay, pickupDateStr, pickupTimeStr, dropoffDateStr, dropoffTimeStr) => {
+  /* ------------------------------------
+        PRICE CALCULATION
+  ------------------------------------ */
+  const computePrice = (
+    rentPerDay,
+    pickupDateStr,
+    pickupTimeStr,
+    dropoffDateStr,
+    dropoffTimeStr
+  ) => {
     const parseDateTime = (d, t) => {
       if (!d) return null;
       const time = t || "00:00";
-      const iso = `${d}T${time}:00`;
-      const dt = new Date(iso);
-      if (isNaN(dt)) return new Date(`${d} ${time}`);
-      return dt;
+      return new Date(`${d}T${time}:00`);
     };
 
     const start = parseDateTime(pickupDateStr, pickupTimeStr);
     const end = parseDateTime(dropoffDateStr, dropoffTimeStr);
-    if (!start || !end || isNaN(start) || isNaN(end) || end <= start)
-      return { chargedDays: 0, chargedHours: 0, subtotal: 0, taxes: 0, handling: 10, total: 10, note: "Invalid dates/times" };
 
-    const durationMs = end.getTime() - start.getTime();
-    const durationMinutes = Math.floor(durationMs / (1000 * 60));
-    const minutesInDay = 24 * 60;
-    const daysFull = Math.floor(durationMinutes / minutesInDay);
-    const remainderMinutes = durationMinutes % minutesInDay;
+    if (!start || !end || end <= start)
+      return {
+        chargedDays: 0,
+        chargedHours: 0,
+        subtotal: 0,
+        taxes: 0,
+        handling: 10,
+        helmetCharge: 0,
+        helmetGST: 0,
+        total: 10,
+        note: "Invalid dates",
+      };
+
+    const durationMs = end - start;
+    const minutes = Math.floor(durationMs / 60000);
+    const minsInDay = 1440;
+
+    const daysFull = Math.floor(minutes / minsInDay);
+    const remainder = minutes % minsInDay;
+
     const perHour = rentPerDay / 24;
 
     let chargedDays = daysFull;
@@ -79,71 +103,139 @@ const BookingPage = () => {
     let subtotal = 0;
     let note = "";
 
-    if (durationMinutes <= minutesInDay) {
-      subtotal = Math.round(rentPerDay);
-      return { chargedDays: 1, chargedHours, subtotal, taxes: Math.round(subtotal * 0.1), handling: 10, total: subtotal + Math.round(subtotal * 0.1) + 10, note: "Minimum 24-hour price applied" };
+    if (minutes <= minsInDay) {
+      subtotal = rentPerDay;
+      return {
+        chargedDays: 1,
+        chargedHours: 0,
+        subtotal,
+        taxes: Math.round(subtotal * 0.18),
+        handling: 10,
+        helmetCharge: helmetCount === 2 ? 50 : 0,
+        helmetGST: helmetCount === 2 ? Math.round(50 * 0.18) : 0,
+        total:
+          subtotal +
+          Math.round(subtotal * 0.18) +
+          10 +
+          (helmetCount === 2 ? 50 : 0) +
+          (helmetCount === 2 ? Math.round(50 * 0.18) : 0),
+        note: "Minimum 1-day price applied",
+      };
     }
 
-    if (remainderMinutes === 0) {
-      subtotal = Math.round(rentPerDay * chargedDays);
+    if (remainder === 0) {
+      subtotal = rentPerDay * chargedDays;
       note = "Exact full days";
-    } else if (remainderMinutes > 12 * 60) {
+    } else if (remainder > 720) {
       chargedDays++;
-      subtotal = Math.round(rentPerDay * chargedDays);
-      note = "Remainder > 12 hours, charged as an extra full day";
+      subtotal = rentPerDay * chargedDays;
+      note = "Remainder > 12 hrs → 1 full extra day";
     } else {
-      const remHours = Math.ceil(remainderMinutes / 60);
-      chargedHours = remHours;
-      subtotal = Math.round(rentPerDay * chargedDays + perHour * chargedHours);
-      note = `Charged ${chargedHours} extra hour(s)`;
+      chargedHours = Math.ceil(remainder / 60);
+      subtotal = rentPerDay * chargedDays + perHour * chargedHours;
+      note = `${chargedHours} extra hrs charged`;
     }
 
     const taxes = Math.round(subtotal * 0.18);
-    const total = Math.round(subtotal + taxes + 10);
-    return { chargedDays, chargedHours, subtotal, taxes, handling: 10, total, note };
+    const handling = 10;
+
+    // ⭐ Helmet calculations
+    const helmetCharge = helmetCount === 2 ? 50 : 0;
+    const helmetGST = helmetCharge > 0 ? Math.round(helmetCharge * 0.18) : 0;
+
+    const total = Math.round(
+      subtotal + taxes + handling + helmetCharge + helmetGST
+    );
+
+    return {
+      chargedDays,
+      chargedHours,
+      subtotal,
+      taxes,
+      handling,
+      helmetCharge,
+      helmetGST,
+      total,
+      note,
+    };
   };
 
   const priceBreakdown = useMemo(() => {
-    if (!vehicle) return { chargedDays: 0, chargedHours: 0, subtotal: 0, taxes: 0, handling: 10, total: 10, note: "" };
-    return computePrice(Number(vehicle.rentPerDay) || 0, pickupDate, pickupTime, dropoffDate, dropoffTime);
-  }, [vehicle, pickupDate, pickupTime, dropoffDate, dropoffTime]);
+    if (!vehicle)
+      return {
+        chargedDays: 0,
+        chargedHours: 0,
+        subtotal: 0,
+        taxes: 0,
+        handling: 10,
+        helmetCharge: 0,
+        helmetGST: 0,
+        total: 10,
+      };
 
-  // ---------------- Handlers ----------------
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+    return computePrice(
+      Number(vehicle.rentPerDay),
+      pickupDate,
+      pickupTime,
+      dropoffDate,
+      dropoffTime
+    );
+  }, [
+    vehicle,
+    pickupDate,
+    pickupTime,
+    dropoffDate,
+    dropoffTime,
+    helmetCount, // ⭐ added
+  ]);
+
+  /* ------------------------------------
+        FORM & OTP HANDLERS
+  ------------------------------------ */
+  const handleChange = (e) =>
+    setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleFileChange = (e) => {
     const { name, files } = e.target;
-    const file = files[0];
-    if (!file) return;
+    if (!files[0]) return;
 
-    if (file.size > 4 * 1024 * 1024) return toast.error("File too large (max 4MB)");
+    const file = files[0];
+
+    if (file.size > 4 * 1024 * 1024)
+      return toast.error("Max file size 4MB");
+
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type))
-      return toast.error("Invalid file type (JPG, PNG, JPEG only)");
+      return toast.error("Invalid file type");
 
     setForm({ ...form, [name]: file });
   };
 
   const handleSendOtp = async () => {
-    if (!form.phoneNumber) return toast.error("Enter phone number first");
+    if (!form.phoneNumber) return toast.error("Enter phone first");
     if (timer > 0) return;
+
     setSendingOtp(true);
 
     try {
-      await axios.post(`${import.meta.env.VITE_API_URL}/otp/send`, { phoneNumber: form.phoneNumber });
-      toast.success("OTP sent to SMS");
+      await axios.post(
+        `${import.meta.env.VITE_API_URL}/otp/send`,
+        { phoneNumber: form.phoneNumber }
+      );
+      toast.success("OTP sent");
       setOtpSent(true);
       setTimer(30);
-      const countdown = setInterval(() => {
-        setTimer((prev) => {
-          if (prev <= 1) {
-            clearInterval(countdown);
+
+      const interval = setInterval(() => {
+        setTimer((t) => {
+          if (t <= 1) {
+            clearInterval(interval);
             return 0;
           }
-          return prev - 1;
+          return t - 1;
         });
       }, 1000);
     } catch {
-      toast.error("Failed to send OTP");
+      toast.error("OTP failed");
     } finally {
       setSendingOtp(false);
     }
@@ -151,55 +243,68 @@ const BookingPage = () => {
 
   const handleVerifyOtp = async () => {
     try {
-      const res = await axios.post(`${import.meta.env.VITE_API_URL}/otp/verify`, {
-        phoneNumber: form.phoneNumber,
-        otp,
-      });
+      const res = await axios.post(
+        `${import.meta.env.VITE_API_URL}/otp/verify`,
+        {
+          phoneNumber: form.phoneNumber,
+          otp,
+        }
+      );
+
       if (res.data.success) {
         setOtpVerified(true);
-        toast.success("Phone verified successfully");
+        toast.success("Phone verified");
       } else toast.error("Invalid OTP");
     } catch {
-      toast.error("OTP verification failed");
+      toast.error("Verification failed");
     }
   };
 
-  // ---------------- Razorpay Flow ----------------
+  /* ------------------------------------
+        RAZORPAY + FINAL SUBMIT
+  ------------------------------------ */
   const buildFormData = () => {
     const fd = new FormData();
-    Object.entries(form).forEach(([key, val]) => val && fd.append(key, val));
+    Object.entries(form).forEach(([k, v]) => v && fd.append(k, v));
     fd.append("vehicleId", id);
     fd.append("city", city);
     fd.append("pickupDate", pickupDate);
     fd.append("dropoffDate", dropoffDate);
+    fd.append("helmetCount", helmetCount);
     return fd;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (vehicle?.availableCount === 0) return toast.error("Vehicle not available");
-    if (!otpVerified) return toast.error("Verify phone number first");
-    if (!termsAccepted) return toast.error("Please agree to the Terms & Conditions");
+
+    if (vehicle?.availableCount === 0)
+      return toast.error("Vehicle not available");
+
+    if (!otpVerified) return toast.error("Verify phone first");
+    if (!termsAccepted) return toast.error("Accept T&C");
+
     setLoading(true);
 
     try {
-      const { data } = await axios.post(`${import.meta.env.VITE_API_URL}/payments/create-order`, {
-        pickupDate,
-        dropoffDate,
-        pricePerDay: vehicle?.rentPerDay || 500,
-        userId: form.userId,
-        vehicleId: id,
-      });
+      const { data } = await axios.post(
+        `${import.meta.env.VITE_API_URL}/payments/create-order`,
+        {
+          pickupDate,
+          dropoffDate,
+          pricePerDay: vehicle?.rentPerDay,
+          userId: form.userId,
+          vehicleId: id,
+          helmetCount, // ⭐ send to backend
+        }
+      );
 
-      if (!data.success) return toast.error("Error creating payment order");
-
-      if (!window.Razorpay) {
-        toast.error("Payment service unavailable");
-        setLoading(false);
+      if (!data.success) {
+        toast.error("Payment error");
         return;
       }
 
       const { order } = data;
+
       const options = {
         key: import.meta.env.VITE_RAZORPAY_KEY_ID,
         amount: order.amount,
@@ -209,17 +314,20 @@ const BookingPage = () => {
         order_id: order.id,
         handler: async (response) => {
           try {
-            const formData = buildFormData();
-            formData.append("razorpay_order_id", response.razorpay_order_id);
-            formData.append("razorpay_payment_id", response.razorpay_payment_id);
-            formData.append("razorpay_signature", response.razorpay_signature);
+            const fd = buildFormData();
 
-            const verifyRes = await axios.post(`${import.meta.env.VITE_API_URL}/payments/verify-payment`, formData, {
-              headers: { "Content-Type": "multipart/form-data" },
-            });
+            fd.append("razorpay_order_id", response.razorpay_order_id);
+            fd.append("razorpay_payment_id", response.razorpay_payment_id);
+            fd.append("razorpay_signature", response.razorpay_signature);
+
+            const verifyRes = await axios.post(
+              `${import.meta.env.VITE_API_URL}/payments/verify-payment`,
+              fd,
+              { headers: { "Content-Type": "multipart/form-data" } }
+            );
 
             if (verifyRes.data?.success) {
-              toast.success("Booking successful!");
+              toast.success("Booking successful");
               navigate("/booking-success", {
                 state: {
                   booking: {
@@ -230,65 +338,107 @@ const BookingPage = () => {
                     name: form.name,
                     phoneNumber: form.phoneNumber,
                     email: form.email,
-                    vehicleName: location.state?.vehicleName,
-                    vehicleImage: location.state?.vehicleImage,
+                    helmetCount,
                   },
                 },
               });
-            } else toast.error("Payment verification failed");
+            } else toast.error("Payment failed");
           } catch {
-            toast.error("Error verifying payment");
+            toast.error("Verification failed");
           }
         },
-        prefill: { name: form.name, email: form.email, contact: form.phoneNumber },
+        prefill: {
+          name: form.name,
+          email: form.email,
+          contact: form.phoneNumber,
+        },
         theme: { color: "#0A3D62" },
       };
 
       new window.Razorpay(options).open();
     } catch {
-      toast.error("Payment initiation failed");
+      toast.error("Payment start failed");
     } finally {
       setLoading(false);
     }
   };
 
-  const { chargedDays, chargedHours, subtotal, taxes, handling, total, note } = priceBreakdown;
+  const {
+    chargedDays,
+    chargedHours,
+    subtotal,
+    taxes,
+    handling,
+    helmetCharge,
+    helmetGST,
+    total,
+    note,
+  } = priceBreakdown;
 
+  /* ------------------------------------
+        UI START
+  ------------------------------------ */
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-sky-100 flex justify-center items-start py-12 px-4">
       <Toaster position="top-center" />
+
       <div className="flex flex-col lg:flex-row w-full max-w-6xl bg-white shadow-xl rounded-2xl overflow-hidden border border-blue-100">
+
         {/* LEFT COLUMN */}
         <div className="w-full lg:w-2/3 p-6 sm:p-8">
           <h2 className="text-3xl font-bold text-[#0A3D62] mb-6">Complete Your Booking</h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <input type="text" name="name" value={form.name} onChange={handleChange} placeholder="Full Name" required className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-sky-400" />
+            <input type="text" name="name" value={form.name} onChange={handleChange} placeholder="Full Name" required className="w-full border border-gray-300 rounded-lg p-3" />
 
-            <input type="email" name="email" value={form.email} onChange={handleChange} placeholder="Email Address" required className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-sky-400" />
+            <input type="email" name="email" value={form.email} onChange={handleChange} placeholder="Email Address" required className="w-full border border-gray-300 rounded-lg p-3" />
 
             {/* Phone + OTP */}
             <div className="flex flex-col sm:flex-row gap-2">
               <div className="relative flex-1">
-                <input type="tel" name="phoneNumber" value={form.phoneNumber} onChange={handleChange} required pattern="[0-9]{10}" placeholder="10-digit Phone Number" className={`w-full border rounded-lg p-3 ${otpVerified ? "border-green-400 pr-10" : "border-gray-300"}`} />
+                <input
+                  type="tel"
+                  name="phoneNumber"
+                  value={form.phoneNumber}
+                  onChange={handleChange}
+                  required
+                  pattern="[0-9]{10}"
+                  placeholder="Phone Number"
+                  className={`w-full border rounded-lg p-3 ${otpVerified ? "border-green-400 pr-10" : "border-gray-300"}`}
+                />
                 {otpVerified && <CheckCircle className="absolute right-3 top-3 text-green-600 w-5 h-5" />}
               </div>
+
               <button
                 type="button"
                 onClick={handleSendOtp}
                 disabled={sendingOtp || otpVerified || timer > 0}
-                className={`px-4 py-3 rounded-lg font-medium text-white transition text-sm sm:text-base ${
-                  otpVerified ? "bg-green-600 cursor-default" : "bg-[#0A3D62] hover:bg-sky-700 disabled:opacity-60"
-                }`}
+                className="px-4 py-3 rounded-lg text-white bg-[#0A3D62]"
               >
-                {otpVerified ? "✅ Verified" : sendingOtp ? "Sending..." : timer > 0 ? `Resend in ${timer}s` : otpSent ? "Resend OTP" : "Send OTP"}
+                {otpVerified
+                  ? "Verified"
+                  : sendingOtp
+                  ? "Sending..."
+                  : timer > 0
+                  ? `Resend in ${timer}s`
+                  : "Send OTP"}
               </button>
             </div>
 
             {otpSent && !otpVerified && (
               <div className="flex flex-col sm:flex-row gap-2">
-                <input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="Enter 6-digit OTP" className="flex-1 border border-gray-300 rounded-lg p-3" />
-                <button type="button" onClick={handleVerifyOtp} className="bg-green-600 text-white px-4 rounded-lg hover:bg-green-700 transition">
+                <input
+                  type="text"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  placeholder="Enter OTP"
+                  className="flex-1 border border-gray-300 rounded-lg p-3"
+                />
+                <button
+                  type="button"
+                  onClick={handleVerifyOtp}
+                  className="px-4 bg-green-600 text-white rounded-lg"
+                >
                   Verify
                 </button>
               </div>
@@ -298,87 +448,118 @@ const BookingPage = () => {
             <FileUpload label="Upload ID Proof (Aadhaar / Passport)" name="aadhaarDocument" file={form.aadhaarDocument} onChange={handleFileChange} />
 
             {/* License Upload */}
-            <FileUpload label="Upload Driver’s License" name="licenseDocument" file={form.licenseDocument} onChange={handleFileChange} />
+            <FileUpload label="Upload Driving License" name="licenseDocument" file={form.licenseDocument} onChange={handleFileChange} />
 
-            {/* Terms & Conditions */}
+            {/* ⭐ HELMET SELECTION */}
+            <div className="border rounded-lg p-3 bg-gray-50">
+              <h4 className="font-semibold text-gray-700 mb-2">Helmet Options</h4>
+
+              <select
+                value={helmetCount}
+                onChange={(e) => setHelmetCount(Number(e.target.value))}
+                className="w-full border border-gray-300 rounded-lg p-2"
+              >
+                <option value={1}>1 Helmet (Free)</option>
+                <option value={2}>2 Helmets (+₹50 + GST)</option>
+              </select>
+
+              <p className="text-sm mt-2 text-gray-600">
+                First helmet is free. Second helmet costs <strong>₹50 + 18% GST</strong>.
+              </p>
+            </div>
+
+            {/* Terms */}
             <div className="border rounded-lg p-3 bg-gray-50">
               <h4 className="font-semibold text-gray-700 mb-2">Terms & Conditions</h4>
-              <ul className="text-sm text-gray-600 list-disc list-inside space-y-1">
-                <li>The renter must present a valid driving license at pickup.</li>
-                <li>Fuel, traffic fines, and damages are the user’s responsibility.</li>
-                <li>Late returns beyond 1 hour will incur additional hourly charges.</li>
-                <li>Vehicles must be returned in the same condition as rented.</li>
-                 <li>The actual color of the bike or scooter may vary from the images displayed on the website.</li>
-                <li>Bookings once confirmed are non-refundable but can be rescheduled.</li>
+              <ul className="text-sm list-disc list-inside text-gray-600 space-y-1">
+                <li>Valid driving license must be shown.</li>
+                <li>Fuel, fines & damages are customer responsibility.</li>
+                <li>Late return incurs hourly charge.</li>
+                <li>Return vehicle in same condition.</li>
+                <li>Actual bike color may vary.</li>
+                <li>Non-refundable bookings; rescheduling allowed.</li>
               </ul>
 
               <label className="flex items-start mt-3 space-x-2 text-sm text-gray-700">
-                <input type="checkbox" checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)} className="mt-1" />
-                <span>I have read and agree to the Terms & Conditions.</span>
+                <input type="checkbox" checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)} />
+                <span>I agree to Terms & Conditions.</span>
               </label>
             </div>
 
-            <button type="submit" disabled={loading} className="w-full bg-gradient-to-r from-[#0A3D62] to-[#3DC1D3] text-white py-3 rounded-lg font-semibold hover:shadow-lg transition">
+            <button type="submit" disabled={loading} className="w-full bg-[#0A3D62] text-white py-3 rounded-lg">
               {loading ? "Processing..." : "Proceed to Payment"}
             </button>
-
-            <div className="flex items-center justify-center mt-3 text-sm text-gray-600">
-              <ShieldCheck className="w-4 h-4 mr-2 text-sky-600" /> 🔒 Your payment is secure and encrypted
-            </div>
-            <div className="flex justify-center mt-1 space-x-2 opacity-70">
-              <img src="https://upload.wikimedia.org/wikipedia/commons/4/41/Visa_Logo.png" alt="Visa" className="h-4" />
-              <img src="https://upload.wikimedia.org/wikipedia/commons/0/04/Mastercard-logo.png" alt="Mastercard" className="h-4" />
-              <CreditCard className="w-4 h-4 text-gray-500" />
-            </div>
           </form>
         </div>
 
-        {/* RIGHT COLUMN */}
-        <div className="w-full lg:w-1/3 bg-gradient-to-b from-[#0A3D62] to-[#3DC1D3] text-white p-8 flex flex-col justify-between sticky top-10">
-          <div>
-            <h3 className="text-xl font-semibold mb-4">Booking Summary</h3>
+        {/* RIGHT COLUMN — SUMMARY */}
+        <div className="w-full lg:w-1/3 bg-gradient-to-b from-[#0A3D62] to-[#3DC1D3] text-white p-8 sticky top-10">
+          <h3 className="text-xl font-semibold mb-4">Booking Summary</h3>
 
-            {vehicleLoading ? (
-              <div className="w-full h-40 bg-white/20 rounded-lg animate-pulse" />
-            ) : vehicle ? (
-              <>
-                <img loading="lazy" decoding="async" src={vehicle.images?.[0] || "https://placehold.co/400x200?text=No+Image"} alt={vehicle.modelName} className="rounded-lg mb-3 w-full h-40 object-contain bg-white/10 p-2" />
-                <p className="font-bold text-lg">{vehicle.brand} {vehicle.modelName}</p>
-                <p className="text-sm text-white/80">₹{vehicle.rentPerDay} / day</p>
-              </>
-            ) : (
-              <div className="w-full h-40 bg-white/20 rounded-lg flex items-center justify-center text-white/70">Vehicle not found</div>
+          {vehicleLoading ? (
+            <div className="w-full h-40 bg-white/20 rounded-lg animate-pulse" />
+          ) : vehicle ? (
+            <>
+              <img src={vehicle.images?.[0]} className="rounded-lg mb-3 w-full h-40 object-contain bg-white/10 p-2" />
+              <p className="font-bold text-lg">{vehicle.brand} {vehicle.modelName}</p>
+              <p className="text-sm text-white/80">₹{vehicle.rentPerDay} / day</p>
+            </>
+          ) : (
+            <div>Vehicle not found</div>
+          )}
+
+          <div className="mt-3 text-sm space-y-1">
+            <p><strong>Pickup:</strong> {city} • {pickupDate} {pickupTime}</p>
+            <p><strong>Dropoff:</strong> {dropoffDate} {dropoffTime}</p>
+
+            <hr className="my-3 border-white/30" />
+
+            <p>Days charged: <span className="float-right">{chargedDays}</span></p>
+            {chargedHours > 0 && (
+              <p>Extra Hours: <span className="float-right">{chargedHours}</span></p>
             )}
 
-            <div className="mt-3 text-sm space-y-1">
-              <p><strong>Pickup:</strong> {city} on {pickupDate} {pickupTime}</p>
-              <p><strong>Dropoff:</strong> {dropoffDate} {dropoffTime}</p>
-              <hr className="my-3 border-white/30" />
-              <p>Days charged: <span className="float-right">{chargedDays}</span></p>
-              {chargedHours > 0 && <p>Extra hours charged: <span className="float-right">{chargedHours}</span></p>}
-              <p className="mt-2">Subtotal: <span className="float-right">₹{subtotal}</span></p>
-              <p>Taxes & Fees (18%): <span className="float-right">₹{taxes}</span></p>
-              <p>Handling Charges: <span className="float-right">₹{handling}</span></p>
-              <p className="font-semibold text-lg mt-2">Total Payable: <span className="float-right font-bold text-white">₹{total}</span></p>
-              {note && <p className="text-xs mt-2 opacity-90"><em>{note}</em></p>}
-            </div>
+            <p className="mt-2">Subtotal: <span className="float-right">₹{subtotal}</span></p>
+            <p>Taxes (18%): <span className="float-right">₹{taxes}</span></p>
+            <p>Handling: <span className="float-right">₹{handling}</span></p>
+
+            {/* ⭐ Helmet summary */}
+            {helmetCharge > 0 && (
+              <>
+                <p>Helmet Charge: <span className="float-right">₹{helmetCharge}</span></p>
+                <p>Helmet GST: <span className="float-right">₹{helmetGST}</span></p>
+              </>
+            )}
+
+            <p className="font-semibold text-lg mt-2">
+              Total Payable: <span className="float-right font-bold text-white">₹{total}</span>
+            </p>
+
+            {note && <p className="text-xs opacity-80 mt-2"><em>{note}</em></p>}
           </div>
-          <p className="text-xs opacity-80 mt-6 text-center">Need help? Contact us at <strong>contact@newbikeworld.com</strong></p>
         </div>
       </div>
     </div>
   );
 };
 
+/* ------------------------------------
+        FILE UPLOAD COMPONENT
+------------------------------------ */
 const FileUpload = ({ label, name, file, onChange }) => (
   <div>
     <label className="block text-gray-700 mb-2 font-medium">{label}</label>
-    <label htmlFor={name} className={`flex items-center justify-between border-2 border-dashed rounded-lg p-3 cursor-pointer transition ${file ? "border-green-400 bg-green-50 text-green-700" : "border-blue-300 text-blue-700 hover:bg-blue-50"}`}>
+    <label
+      htmlFor={name}
+      className={`flex items-center justify-between border-2 border-dashed rounded-lg p-3 cursor-pointer ${
+        file ? "border-green-400 bg-green-50 text-green-700" : "border-blue-300 text-blue-700"
+      }`}
+    >
       <div className="flex items-center space-x-2">
         <Upload className={`w-4 h-4 ${file ? "text-green-600" : "text-blue-600"}`} />
-        <span>{file ? `✅ ${file.name}` : "Upload File"}</span>
+        <span>{file ? `Uploaded: ${file.name}` : "Upload File"}</span>
       </div>
-      <input id={name} type="file" name={name} accept="image/jpeg, image/png, image/webp" onChange={onChange} className="hidden" required />
+      <input id={name} type="file" name={name} accept="image/*" onChange={onChange} className="hidden" required />
     </label>
   </div>
 );

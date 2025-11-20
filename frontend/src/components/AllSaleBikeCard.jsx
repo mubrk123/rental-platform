@@ -43,12 +43,6 @@ const AllSaleBikeCard = ({ bike, onView, onImageClick }) => {
           >
             <Eye className="inline w-4 h-4 mr-1" /> View Details
           </button>
-          <a
-            href="tel:6202673708"
-            className="border border-sky-300 text-sky-700 py-2 px-4 rounded-lg font-semibold hover:bg-sky-50 text-sm"
-          >
-            Contact
-          </a>
         </div>
       </div>
     </div>

@@ -88,12 +88,7 @@ const SaleBikeCard = ({ bike, onView, onEdit, onDelete, isAdmin = false }) => {
           >
             <Eye className="inline w-4 h-4 mr-1" /> View Details
           </button>
-          <button
-            onClick={() => alert('📞 Contact form coming soon!')}
-            className="bg-green-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-green-700 hover:scale-105 transition-all"
-          >
-            <Phone className="inline w-4 h-4 mr-1" /> Contact
-          </button>
+    
         </div>
       )}
     </div>

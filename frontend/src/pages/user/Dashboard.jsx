@@ -17,6 +17,24 @@ const LOCATIONS = [
   "Majestic (Gandhi Nagar)",
 ];
 
+
+const TIME_SLOTS = [
+  "08:00", "08:30",
+  "09:00", "09:30",
+  "10:00", "10:30",
+  "11:00", "11:30",
+  "12:00", "12:30",
+  "13:00", "13:30",
+  "14:00", "14:30",
+  "15:00", "15:30",
+  "16:00", "16:30",
+  "17:00", "17:30",
+  "18:00", "18:30",
+  "19:00", "19:30",
+  "20:00", "20:30",
+  "21:00", "21:30",
+];
+
 /* -------------------------------------------------------------------------- */
 /* 🧭 Minimal Navbar Component (accepts onSaleClick prop to remain compatible) */
 /* -------------------------------------------------------------------------- */
@@ -35,25 +53,50 @@ const Navbar = ({ onSaleClick }) => {
         isScrolled ? "shadow-sm" : ""
       }`}
     >
-      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
-        <img
-          src={Logo}
-          alt="NewBikeWorld"
-          className="w-12 h-12 rounded-full object-cover shadow"
-        />
-        <div>
-          <div className="text-xl font-bold text-slate-900 leading-none">
-            NewBike<span className="text-sky-600">World</span>
+      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+        
+        {/* LEFT SECTION — LOGO */}
+        <div className="flex items-center gap-3">
+          <img
+            src={Logo}
+            alt="NewBikeWorld"
+            className="w-12 h-12 rounded-full object-cover shadow"
+          />
+          <div>
+            <div className="text-xl font-bold text-slate-900 leading-none">
+              NewBike<span className="text-sky-600">World</span>
+            </div>
           </div>
         </div>
+
+        {/* RIGHT SECTION (DESKTOP ONLY) */}
+        <nav className="hidden md:flex items-center gap-4">
+          <button
+            onClick={onSaleClick}
+            className="bg-gradient-to-r from-[#0F172A] to-sky-600 text-white px-4 py-2 rounded-lg font-semibold shadow-md hover:scale-[1.03] transition"
+          >
+            Bike for Sale
+          </button>
+
+          <a
+            href="tel:8024485960"
+            className="bg-sky-600 text-white px-4 py-2 rounded-lg font-semibold shadow-md hover:bg-sky-700 transition flex items-center gap-2"
+          >
+            <Phone className="w-4 h-4" />
+            Contact Us
+          </a>
+        </nav>
+
+        {/* MOBILE VIEW — NOTHING ON RIGHT SIDE */}
+        <div className="md:hidden"></div>
       </div>
     </header>
   );
 };
 
+
 /* -------------------------------------------------------------------------- */
 /* 🔍 Search Widget (with showPicker restored on all date/time inputs)         */
-/* -------------------------------------------------------------------------- */
 const SearchWidget = () => {
   const navigate = useNavigate();
   const today = new Date().toISOString().split("T")[0];
@@ -64,23 +107,6 @@ const SearchWidget = () => {
   const [dropoffTime, setDropoffTime] = useState("");
   const [pickupLocation, setPickupLocation] = useState("");
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    const now = new Date();
-    const todayStr = now.toISOString().split("T")[0];
-
-    let minPickup = "08:00";
-
-    if (pickupDate === todayStr) {
-      const nextHour = new Date(now.getTime() + 60 * 60 * 1000);
-      const hrs = nextHour.getHours().toString().padStart(2, "0");
-      const mins = nextHour.getMinutes().toString().padStart(2, "0");
-      minPickup = `${hrs}:${mins}`;
-    }
-
-    if (pickupTime && pickupTime < minPickup) setPickupTime(minPickup);
-    if (dropoffTime && dropoffTime > "23:30") setDropoffTime("23:30");
-  }, [pickupDate, pickupTime, dropoffTime]);
 
   const validate = () => {
     if (!pickupLocation) return "Please select a pickup location.";
@@ -94,6 +120,7 @@ const SearchWidget = () => {
 
     if (pickup < now) return "Pickup time cannot be in the past.";
     if (dropoff <= pickup) return "Drop-off must be after pickup.";
+
     return null;
   };
 
@@ -115,6 +142,21 @@ const SearchWidget = () => {
 
     navigate(`/vehicles?${query}`);
   };
+  const getPickupTimeSlots = () => {
+  if (pickupDate !== today) return TIME_SLOTS;
+
+  const now = new Date();
+  const plus1 = new Date(now.getTime() + 60 * 60 * 1000);
+
+  let h = plus1.getHours().toString().padStart(2, "0");
+  let m = plus1.getMinutes().toString().padStart(2, "0");
+  
+  const minAllowed = `${h}:${m}`;
+
+  // Example: if time now is 15:12 → 16:12 → next valid is 16:30
+  return TIME_SLOTS.filter(t => t >= minAllowed);
+};
+
 
   return (
     <>
@@ -131,6 +173,7 @@ const SearchWidget = () => {
         )}
 
         <div className="space-y-4 text-[15px]">
+          {/* Pickup Location */}
           <select
             value={pickupLocation}
             onChange={(e) => setPickupLocation(e.target.value)}
@@ -143,6 +186,8 @@ const SearchWidget = () => {
           </select>
 
           <div className="grid grid-cols-2 gap-3">
+            
+            {/* Pickup Date */}
             <div>
               <label className="block text-sm font-semibold mb-1 text-gray-700">
                 Pickup Date
@@ -153,29 +198,29 @@ const SearchWidget = () => {
                 value={pickupDate}
                 onChange={(e) => setPickupDate(e.target.value)}
                 onFocus={(e) => e.target.showPicker?.()}
-                className="p-3 rounded-md bg-gray-100 focus:ring-2 focus:ring-sky-400 focus:bg-white w-full cursor-pointer"
+                className="p-3 rounded-md bg-gray-100 focus:ring-2 focus:ring-sky-400"
               />
             </div>
 
+            {/* Pickup Time (DROPDOWN 24-HOUR) */}
             <div>
               <label className="block text-sm font-semibold mb-1 text-gray-700">
                 Pickup Time
               </label>
-              <input
-                type="time"
+              <select
                 value={pickupTime}
                 onChange={(e) => setPickupTime(e.target.value)}
-                onFocus={(e) => e.target.showPicker?.()}
-                min={
-                  pickupDate === today
-                    ? new Date(Date.now() + 3600000).toISOString().slice(11, 16)
-                    : "08:00"
-                }
-                max="23:30"
-                className="p-3 rounded-md bg-gray-100 focus:ring-2 focus:ring-sky-400 focus:bg-white w-full cursor-pointer"
-              />
+                className="p-3 rounded-md bg-gray-100 focus:ring-2 focus:ring-sky-400"
+              >
+                <option value="">--:--</option>
+                {getPickupTimeSlots().map((t) => (
+  <option key={t} value={t}>{t}</option>
+))}
+
+              </select>
             </div>
 
+            {/* Drop-off Date */}
             <div>
               <label className="block text-sm font-semibold mb-1 text-gray-700">
                 Drop-off Date
@@ -186,23 +231,25 @@ const SearchWidget = () => {
                 value={dropoffDate}
                 onChange={(e) => setDropoffDate(e.target.value)}
                 onFocus={(e) => e.target.showPicker?.()}
-                className="p-3 rounded-md bg-gray-100 focus:ring-2 focus:ring-sky-400 focus:bg-white w-full cursor-pointer"
+                className="p-3 rounded-md bg-gray-100 focus:ring-2 focus:ring-sky-400"
               />
             </div>
 
+            {/* Drop-off Time (DROPDOWN 24-HOUR) */}
             <div>
               <label className="block text-sm font-semibold mb-1 text-gray-700">
                 Drop-off Time
               </label>
-              <input
-                type="time"
+              <select
                 value={dropoffTime}
                 onChange={(e) => setDropoffTime(e.target.value)}
-                onFocus={(e) => e.target.showPicker?.()}
-                min="08:00"
-                max="23:30"
-                className="p-3 rounded-md bg-gray-100 focus:ring-2 focus:ring-sky-400 focus:bg-white w-full cursor-pointer"
-              />
+                className="p-3 rounded-md bg-gray-100 focus:ring-2 focus:ring-sky-400"
+              >
+                <option value="">--:--</option>
+                {TIME_SLOTS.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -222,7 +269,10 @@ const SearchWidget = () => {
             {error}
           </p>
         )}
+
         <div className="flex flex-col space-y-3">
+          
+          {/* Pickup Location */}
           <select
             value={pickupLocation}
             onChange={(e) => setPickupLocation(e.target.value)}
@@ -235,6 +285,8 @@ const SearchWidget = () => {
           </select>
 
           <div className="grid grid-cols-2 gap-2">
+            
+            {/* Pickup Date */}
             <div>
               <label className="block text-xs mb-1">Pickup Date</label>
               <input
@@ -247,23 +299,22 @@ const SearchWidget = () => {
               />
             </div>
 
+            {/* Pickup Time (DROPDOWN) */}
             <div>
               <label className="block text-xs mb-1">Pickup Time</label>
-              <input
-                type="time"
+              <select
                 value={pickupTime}
                 onChange={(e) => setPickupTime(e.target.value)}
-                onFocus={(e) => e.target.showPicker?.()}
-                min={
-                  pickupDate === today
-                    ? new Date(Date.now() + 3600000).toISOString().slice(11, 16)
-                    : "08:00"
-                }
-                max="23:30"
                 className="bg-transparent border border-white/60 rounded-md px-2 py-2 text-sm w-full"
-              />
+              >
+                <option value="">--:--</option>
+                {TIME_SLOTS.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
             </div>
 
+            {/* Drop-off Date */}
             <div>
               <label className="block text-xs mb-1">Drop-off Date</label>
               <input
@@ -276,17 +327,19 @@ const SearchWidget = () => {
               />
             </div>
 
+            {/* Drop-off Time (DROPDOWN) */}
             <div>
               <label className="block text-xs mb-1">Drop-off Time</label>
-              <input
-                type="time"
+              <select
                 value={dropoffTime}
                 onChange={(e) => setDropoffTime(e.target.value)}
-                onFocus={(e) => e.target.showPicker?.()}
-                min="08:00"
-                max="23:30"
                 className="bg-transparent border border-white/60 rounded-md px-2 py-2 text-sm w-full"
-              />
+              >
+                <option value="">--:--</option>
+                {TIME_SLOTS.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -301,6 +354,8 @@ const SearchWidget = () => {
     </>
   );
 };
+
+
 
 /* -------------------------------------------------------------------------- */
 /* 🏍️ Landing Page Component                                                  */
