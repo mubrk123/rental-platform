@@ -87,7 +87,7 @@ export const sendEmail = async (to, booking) => {
               <p><b>Location:</b> ${booking.city || ""}</p>
               <p><b>Pickup:</b> ${booking.pickupDate ? new Date(booking.pickupDate).toLocaleString() : ""}</p>
               <p><b>Dropoff:</b> ${booking.dropoffDate ? new Date(booking.dropoffDate).toLocaleString() : ""}</p>
-              <p><b>Contact:</b> ${booking.phoneNumber || ""}</p>
+              <p><b>Contact:</b> ${"9141555960" || ""}</p>
             </div>
 
             <p style="color:#333;">For support, contact <b>${process.env.EMAIL_USER}</b>.</p>

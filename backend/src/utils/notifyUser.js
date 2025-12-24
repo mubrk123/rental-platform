@@ -3,25 +3,33 @@ import twilio from "twilio";
 import dotenv from "dotenv";
 dotenv.config();
 
+/* --------------------------------------------------
+   TWILIO CLIENT
+-------------------------------------------------- */
 const client = twilio(
   process.env.TWILIO_ACCOUNT_SID,
   process.env.TWILIO_AUTH_TOKEN
 );
 
 /* --------------------------------------------------
-   TEMPLATE SIDs
+   TEMPLATE SIDS (USER ONLY)
 -------------------------------------------------- */
 const templates = {
   OTP: process.env.TWILIO_TEMPLATE_OTP_SID,
   BOOKING_CONFIRMATION: process.env.TWILIO_TEMPLATE_CONFIRM_SID,
   THANK_YOU: process.env.TWILIO_TEMPLATE_THANKYOU_SID,
-  BOOKING_ALERT_HANDLER: process.env.TWILIO_TEMPLATE_HANDLER_SID,
-  BOOKING_ALERT_ADMIN: process.env.TWILIO_TEMPLATE_ADMIN_SID,
 };
 
 /* --------------------------------------------------
    FORMATTERS
 -------------------------------------------------- */
+const formatSms = (n) => {
+  if (!n) throw new Error("Phone missing");
+  if (n.startsWith("+")) return n;
+  if (n.length === 10) return `+91${n}`;
+  return n;
+};
+
 const formatWa = (n) => {
   if (!n) throw new Error("Phone missing");
   if (n.startsWith("whatsapp:")) return n;
@@ -30,25 +38,36 @@ const formatWa = (n) => {
   return `whatsapp:${n}`;
 };
 
-const formatSms = (n) => {
-  if (!n) throw new Error("Phone missing");
-  if (n.startsWith("+")) return n;
-  if (n.length === 10) return `+91${n}`;
-  return n;
+/* --------------------------------------------------
+   USER → OTP (SMS ONLY)
+-------------------------------------------------- */
+export const sendOtpSMS = async (to, otp) => {
+  const formatted = formatSms(to);
+  try {
+    const msg = await client.messages.create({
+      to: formatted,
+      messagingServiceSid: process.env.TWILIO_MESSAGING_SERVICE_SID,
+      body: `Your NewBikeWorld OTP is ${otp}. Do not share it with anyone.`,
+    });
+    console.log(`✅ OTP SMS sent → ${formatted}`);
+    return msg.sid;
+  } catch (err) {
+    console.error("❌ OTP SMS failed:", err.message);
+    throw err;
+  }
 };
 
 /* --------------------------------------------------
-   SEND WHATSAPP TEMPLATE
+   USER → WHATSAPP TEMPLATE
 -------------------------------------------------- */
-export const sendWhatsAppTemplate = async (to, type, vars = {}) => {
-  const formattedTo = formatWa(to);
+export const sendUserWhatsAppTemplate = async (to, type, vars = {}) => {
   const contentSid = templates[type];
-  if (!contentSid) throw new Error(`Missing template SID: ${type}`);
+  if (!contentSid) throw new Error(`Missing WhatsApp template: ${type}`);
 
-  const normalizedVars =
-    type === "OTP"
-      ? { "1": String(vars["1"] || vars.otp || vars.code) }
-      : Object.fromEntries(Object.entries(vars).map(([k, v]) => [k, String(v)]));
+  const formattedTo = formatWa(to);
+  const normalizedVars = Object.fromEntries(
+    Object.entries(vars).map(([k, v]) => [k, String(v)])
+  );
 
   try {
     const msg = await client.messages.create({
@@ -57,114 +76,63 @@ export const sendWhatsAppTemplate = async (to, type, vars = {}) => {
       contentSid,
       contentVariables: JSON.stringify(normalizedVars),
     });
-    console.log(`📩 WA template (${type}) sent → ${formattedTo}`);
+    console.log(`📩 User WhatsApp sent (${type}) → ${formattedTo}`);
     return msg.sid;
   } catch (err) {
-    console.error(`❌ WA template failed (${type}):`, err.message);
+    console.error(`❌ User WhatsApp failed (${type}):`, err.message);
     throw err;
   }
 };
 
 /* --------------------------------------------------
-   SEND PURE WHATSAPP TEXT
+   ADMIN → SMS ONLY
 -------------------------------------------------- */
-export const sendWhatsAppText = async (to, body) => {
-  const formattedTo = formatWa(to);
-  try {
-    const msg = await client.messages.create({
-      from: process.env.TWILIO_WHATSAPP_NUMBER,
-      to: formattedTo,
-      body,
-    });
-    console.log(`💬 WA text sent → ${formattedTo}`);
-    return msg.sid;
-  } catch (err) {
-    console.error("❌ WA text failed:", err.message);
-    throw err;
-  }
-};
+export const sendAdminSMSAlert = async (text) => {
+  const adminNumber =
+    process.env.MAIN_ADMIN_NUMBER || process.env.ADMIN_WHATSAPP_NUMBER;
 
-/* --------------------------------------------------
-   SEND SMS (Admin)
--------------------------------------------------- */
-export const sendSMS = async (to, body) => {
-  const formatted = formatSms(to);
+  if (!adminNumber) {
+    console.warn("⚠️ Admin phone number missing");
+    return;
+  }
+
+  const formatted = formatSms(adminNumber);
+
   try {
     const msg = await client.messages.create({
-      body,
-      messagingServiceSid: process.env.TWILIO_MESSAGING_SERVICE_SID,
       to: formatted,
+      messagingServiceSid: process.env.TWILIO_MESSAGING_SERVICE_SID,
+      body: text,
     });
-    console.log(`📲 SMS sent → ${formatted}`);
+    console.log(`📲 Admin SMS sent → ${formatted}`);
     return msg.sid;
-  } catch (err) {
-    console.error("❌ SMS failed:", err.message);
-    throw err;
-  }
-};
-
-/* --------------------------------------------------
-   ADMIN ALERT (WhatsApp + SMS ALWAYS)
--------------------------------------------------- */
-export const sendAdminAlert = async ({ vars = {}, text = "" }) => {
-  const admin = process.env.ADMIN_WHATSAPP_NUMBER || process.env.MAIN_ADMIN_NUMBER;
-
-  if (!admin) throw new Error("Admin phone missing");
-
-  let waSuccess = false;
-
-  // 1️⃣ Try WhatsApp template
-  if (templates.BOOKING_ALERT_ADMIN) {
-    try {
-      await sendWhatsAppTemplate(admin, "BOOKING_ALERT_ADMIN", vars);
-      console.log("📩 Admin WA template sent");
-      waSuccess = true;
-    } catch (err) {
-      console.warn("⚠️ Admin WA template failed:", err.message);
-    }
-  }
-
-  // 2️⃣ Fallback → WhatsApp text
-  if (!waSuccess) {
-    try {
-      await sendWhatsAppText(admin, text);
-      console.log("📩 Admin WA text sent");
-      waSuccess = true;
-    } catch (err) {
-      console.warn("⚠️ Admin WA text failed:", err.message);
-    }
-  }
-
-  // 3️⃣ ALWAYS SEND SMS
-  try {
-    await sendSMS(admin, text);
-    console.log("📲 Admin SMS sent (forced)");
   } catch (err) {
     console.error("❌ Admin SMS failed:", err.message);
+    throw err;
   }
 };
 
-
 /* --------------------------------------------------
-   HANDLER ALERT (WA TEMPLATE → WA TEXT)
+   HANDLER → SMS ONLY
 -------------------------------------------------- */
-export const sendHandlerAlert = async ({ phone, vars = {}, text = "" }) => {
-  if (!phone) throw new Error("Handler phone missing");
-
-  // 1️⃣ Try template
-  if (templates.BOOKING_ALERT_HANDLER) {
-    try {
-      return await sendWhatsAppTemplate(phone, "BOOKING_ALERT_HANDLER", vars);
-    } catch (err) {
-      console.warn("⚠️ Handler template failed:", err.message);
-    }
+export const sendHandlerSMSAlert = async (to, text) => {
+  if (!to) {
+    console.warn("⚠️ Handler phone missing");
+    return;
   }
 
-  // 2️⃣ Fallback → WA text
+  const formatted = formatSms(to);
+
   try {
-    return await sendWhatsAppText(phone, text);
+    const msg = await client.messages.create({
+      to: formatted,
+      messagingServiceSid: process.env.TWILIO_MESSAGING_SERVICE_SID,
+      body: text,
+    });
+    console.log(`📲 Handler SMS sent → ${formatted}`);
+    return msg.sid;
   } catch (err) {
-    console.error("❌ Handler WA failed:", err.message);
+    console.error("❌ Handler SMS failed:", err.message);
     throw err;
   }
 };

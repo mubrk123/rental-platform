@@ -7,13 +7,14 @@ import { PDFDocument as PDFLibDocument, rgb, StandardFonts } from "pdf-lib";
 import axios from "axios";
 import fs from "fs";
 import path from "path";
-import { sendWhatsAppTemplate } from "../utils/notifyUser.js";
+import { sendUserWhatsAppTemplate } from "../utils/notifyUser.js";
 import { sendEmail } from "../utils/sendEmail.js";
 import { sendSMS } from "../utils/twilioClient.js";
 import { upload, uploadToCloudinary, cloudinary } from "../utils/upload.js";
 import { pickupLocations } from "../utils/locationMap.js";
 import * as bookingController from "../controllers/bookingController.js";
 const router = express.Router();
+
 
 // City → 3-letter code mapping (kept from your original)
 const locationCodes = {
@@ -191,10 +192,10 @@ router.put("/complete/:id", async (req, res) => {
 
     // Notify the user (WhatsApp thank you template)
     try {
-      await sendWhatsAppTemplate(booking.phoneNumber, "THANK_YOU", {
-        1: booking.name || "Customer",
-        2: `${booking.vehicleId?.brand || ""} ${booking.vehicleId?.modelName || ""}`,
-      });
+     await sendUserWhatsAppTemplate(booking.phoneNumber, "THANK_YOU", {
+  1: booking.name || "Customer",
+  2: `${booking.vehicleId?.brand || ""} ${booking.vehicleId?.modelName || ""}`,
+});
       console.log(`💬 Thank-you WhatsApp sent to ${booking.phoneNumber}`);
     } catch (err) {
       console.warn("⚠️ WhatsApp THANK_YOU failed:", err?.message || err);

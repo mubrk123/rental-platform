@@ -4,21 +4,21 @@ import crypto from "crypto";
 import Razorpay from "razorpay";
 import Booking from "../models/Booking.js";
 import Vehicle from "../models/Vehicle.js";
-import { sendWhatsAppTemplate } from "../utils/notifyUser.js";
-import { sendEmail } from "../utils/sendEmail.js";
 import { upload, uploadToCloudinary } from "../utils/upload.js";
 import { pickupLocations } from "../utils/locationMap.js";
+import { sendEmail } from "../utils/sendEmail.js";
 
-// ⭐ import these alert functions from bookingRoutes.js file
+// ✅ ONLY THESE NOTIFICATION FUNCTIONS
 import {
-  sendAdminAlert,
-  sendHandlerAlert,
+  sendUserWhatsAppTemplate,
+  sendAdminSMSAlert,
+  sendHandlerSMSAlert,
 } from "../utils/notifyUser.js";
 
 const router = express.Router();
 
 /* ======================================================================
-    🟦 CREATE ORDER (with helmet charges)
+   🟦 CREATE ORDER (UNCHANGED)
 ====================================================================== */
 router.post("/create-order", async (req, res) => {
   try {
@@ -26,7 +26,10 @@ router.post("/create-order", async (req, res) => {
 
     const start = new Date(pickupDate);
     const end = new Date(dropoffDate);
-    const days = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
+    const days = Math.max(
+      1,
+      Math.ceil((end - start) / (1000 * 60 * 60 * 24))
+    );
 
     const baseAmount = days * Number(pricePerDay);
     const taxes = Math.round(baseAmount * 0.18);
@@ -37,15 +40,6 @@ router.post("/create-order", async (req, res) => {
 
     const totalAmount =
       baseAmount + taxes + handling + helmetCharge + helmetGST;
-
-    console.log("🔵 Calculated Amount:", {
-      baseAmount,
-      taxes,
-      handling,
-      helmetCharge,
-      helmetGST,
-      totalAmount,
-    });
 
     const razorpay = new Razorpay({
       key_id: process.env.RAZORPAY_KEY_ID,
@@ -68,7 +62,7 @@ router.post("/create-order", async (req, res) => {
 });
 
 /* ======================================================================
-    🟩 VERIFY PAYMENT + CREATE BOOKING + SEND ALERTS
+   🟩 VERIFY PAYMENT + CREATE BOOKING + NOTIFY
 ====================================================================== */
 router.post(
   "/verify-payment",
@@ -93,16 +87,17 @@ router.post(
         helmetCount,
       } = req.body;
 
-      // ------------------------------- Signature Check -------------------------------
+      // 🔐 Signature check
       const expectedSig = crypto
         .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-        .update(razorpay_order_id + "|" + razorpay_payment_id)
+        .update(`${razorpay_order_id}|${razorpay_payment_id}`)
         .digest("hex");
 
-      if (expectedSig !== razorpay_signature)
+      if (expectedSig !== razorpay_signature) {
         return res
           .status(400)
           .json({ success: false, message: "Invalid signature" });
+      }
 
       // Prevent duplicate booking
       const existing = await Booking.findOne({
@@ -110,7 +105,7 @@ router.post(
       });
       if (existing) return res.json({ success: true, booking: existing });
 
-      // ------------------------------- Upload Docs -------------------------------
+      // Upload docs
       const aadhaarPath = req.files?.aadhaarDocument
         ? await uploadToCloudinary(req.files.aadhaarDocument[0], "documents")
         : null;
@@ -119,8 +114,8 @@ router.post(
         ? await uploadToCloudinary(req.files.licenseDocument[0], "documents")
         : null;
 
-      // ------------------------------- Create Booking -------------------------------
-      const newBooking = new Booking({
+      // Create booking
+      const booking = new Booking({
         userId,
         vehicleId,
         name,
@@ -137,120 +132,66 @@ router.post(
         status: "paid",
       });
 
-      await newBooking.save();
+      await booking.save();
 
-      // ------------------------------- Update Stock -------------------------------
+      // Update vehicle stock
       const vehicle = await Vehicle.findById(vehicleId);
       if (vehicle) {
         vehicle.bookedQuantity = Number(vehicle.bookedQuantity || 0) + 1;
         await vehicle.save();
       }
 
-     /* ------------------------------------
-   SEND USER WHATSAPP CONFIRMATION
------------------------------------- */
-try {
-  const locData = pickupLocations[city?.toLowerCase()] || {};
+      const locData = pickupLocations[city?.toLowerCase()] || {};
 
-  await sendWhatsAppTemplate(phoneNumber, "BOOKING_CONFIRMATION", {
-    1: name,
-    2: pickupDate,
-    3: dropoffDate,
-    4: city,
-    5: `${locData.address || "Pickup Counter"} ${locData.link || ""}`,
-    6: locData.handlerPhone || process.env.DEFAULT_HANDLER_NUMBER,
-    7: vehicle?.modelName || "Bike",
-  });
-  console.log("📩 User booking WA sent");
-} catch (err) {
-  console.log("⚠️ User WA error:", err.message);
-}
+      /* ---------------- USER WHATSAPP ---------------- */
+      await sendUserWhatsAppTemplate(phoneNumber, "BOOKING_CONFIRMATION", {
+        1: name,
+        2: pickupDate,
+        3: dropoffDate,
+        4: city,
+        5: `${locData.address || "Pickup Counter"} ${locData.link || ""}`,
+        6: locData.handlerPhone || process.env.DEFAULT_HANDLER_NUMBER,
+        7: vehicle?.modelName || "Bike",
+      });
 
-/* ------------------------------------
-   SEND ADMIN ALERT WITH PHONE NUMBER
------------------------------------- */
-/* ------------------------------------
-   SEND ADMIN ALERT — MATCHES TEMPLATE
------------------------------------- */
-try {
-  await sendAdminAlert({
-    vars: {
-      1: city,                                                                   // Location
-      2: name,                                                                   // Customer
-      3: phoneNumber,                                                            // Phone
-      4: email || "N/A",                                                         // Email
-      5: `${vehicle?.brand} ${vehicle?.modelName}`,                              // Vehicle
-      6: pickupDate,                                                             // Pickup
-      7: dropoffDate,                                                            // Dropoff
-      8: pickupLocations[city?.toLowerCase()]?.handlerPhone || "N/A",           // Handler phone
-    },
-    text: `New booking confirmed!
+      /* ---------------- ADMIN SMS ---------------- */
+      await sendAdminSMSAlert(
+        `New booking confirmed
 Location: ${city}
 Customer: ${name}
 Phone: ${phoneNumber}
-Email: ${email}
-Vehicle: ${vehicle?.brand} ${vehicle?.modelName}
+Vehicle: ${vehicle?.brand || ""} ${vehicle?.modelName || ""}
 Pickup: ${pickupDate}
 Dropoff: ${dropoffDate}
-Handler: ${pickupLocations[city?.toLowerCase()]?.handlerPhone || "N/A"}`
-  });
+Handler: ${locData.handlerPhone || "N/A"}`
+      );
 
-  console.log("📨 Admin booking alert sent");
-} catch (err) {
-  console.warn("⚠️ Admin alert failed:", err.message);
-}
-
-/* ------------------------------------
-   SEND HANDLER ALERT — MATCHES TEMPLATE
------------------------------------- */
-try {
-  const handlerPhone = pickupLocations[city?.toLowerCase()]?.handlerPhone;
-
-  await sendHandlerAlert({
-    phone: handlerPhone,
-    vars: {
-      1: city,                               // Location
-      2: name,                               // Customer
-      3: phoneNumber,                        // Phone
-      4: email || "N/A",                     // Email
-      5: `${vehicle?.brand} ${vehicle?.modelName}`,   // Vehicle
-      6: pickupDate,                         // Pickup
-      7: dropoffDate,                        // Dropoff
-    },
-    text: `New booking received for ${city} branch!
+      /* ---------------- HANDLER SMS ---------------- */
+      if (locData.handlerPhone) {
+        await sendHandlerSMSAlert(
+          locData.handlerPhone,
+          `New booking for ${city}
 Customer: ${name}
 Phone: ${phoneNumber}
-Email: ${email}
-Vehicle: ${vehicle?.brand} ${vehicle?.modelName}
+Vehicle: ${vehicle?.brand || ""} ${vehicle?.modelName || ""}
 Pickup: ${pickupDate}
 Dropoff: ${dropoffDate}`
-  });
-
-  console.log("📨 Handler booking alert sent");
-} catch (err) {
-  console.warn("⚠️ Handler alert failed:", err.message);
-}
-
-
-      /* ======================================================================
-            EMAIL CONFIRMATION
-      ====================================================================== */
-      if (email) {
-        try {
-          await sendEmail(email, {
-            name,
-            bookingId: newBooking._id,
-            city,
-            pickupDate,
-            dropoffDate,
-            phoneNumber,
-          });
-        } catch (err) {
-          console.log("⚠️ Email error:", err.message);
-        }
+        );
       }
 
-      return res.json({ success: true, booking: newBooking });
+      /* ---------------- EMAIL ---------------- */
+      if (email) {
+        await sendEmail(email, {
+          name,
+          bookingId: booking.bookingId || booking._id.toString(),
+          city,
+          pickupDate,
+          dropoffDate,
+          phoneNumber,
+        });
+      }
+
+      return res.json({ success: true, booking });
     } catch (err) {
       console.error("❌ verify-payment error:", err);
       return res
