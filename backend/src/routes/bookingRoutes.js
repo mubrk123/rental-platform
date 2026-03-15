@@ -212,7 +212,9 @@ router.put("/complete/:id", async (req, res) => {
           vehicleModel: booking.vehicleId?.modelName || "",
           city: booking.city,
           pickupDate: booking.pickupDate,
+          pickupTime: booking.pickupTime,
           dropoffDate: booking.dropoffDate,
+          dropoffTime: booking.dropoffTime,
           phoneNumber: booking.phoneNumber,
           completed: true,
         });

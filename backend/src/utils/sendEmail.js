@@ -14,6 +14,30 @@ const createTransporter = () =>
     },
   });
 
+// Format date + optional time into human-readable string with AM/PM
+const formatDateTime = (date, time) => {
+  if (!date) return "";
+  try {
+    const d = new Date(date);
+    if (time) {
+      const [h, m = "0"] = String(time).split(":");
+      const hours = Number(h);
+      const minutes = Number(m);
+      if (!Number.isNaN(hours)) d.setHours(hours, minutes || 0, 0, 0);
+    }
+    return d.toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  } catch (e) {
+    return String(date);
+  }
+};
+
 export const sendEmail = async (to, booking) => {
   try {
     const transporter = createTransporter();
@@ -54,8 +78,8 @@ export const sendEmail = async (to, booking) => {
             <div style="background:#f9f9ff;border-left:4px solid #4f46e5;padding:12px 18px;margin:18px 0;border-radius:6px;">
               <p><b>Booking ID:</b> ${booking.bookingId || ""}</p>
               <p><b>Location:</b> ${booking.city || ""}</p>
-              <p><b>Pickup:</b> ${booking.pickupDate ? new Date(booking.pickupDate).toLocaleDateString() : ""}</p>
-              <p><b>Dropoff:</b> ${booking.dropoffDate ? new Date(booking.dropoffDate).toLocaleDateString() : ""}</p>
+              <p><b>Pickup:</b> ${formatDateTime(booking.pickupDate, booking.pickupTime)}</p>
+              <p><b>Dropoff:</b> ${formatDateTime(booking.dropoffDate, booking.dropoffTime)}</p>
             </div>
 
             <p style="color:#333;">We hope you enjoyed your ride. Come back soon! 💙</p>
@@ -85,8 +109,8 @@ export const sendEmail = async (to, booking) => {
               <p><b>Booking ID:</b> ${booking.bookingId || ""}</p>
               <p><b>Vehicle:</b> ${booking.vehicleName || ""} ${booking.vehicleModel || ""}</p>
               <p><b>Location:</b> ${booking.city || ""}</p>
-              <p><b>Pickup:</b> ${booking.pickupDate ? new Date(booking.pickupDate).toLocaleString() : ""}</p>
-              <p><b>Dropoff:</b> ${booking.dropoffDate ? new Date(booking.dropoffDate).toLocaleString() : ""}</p>
+              <p><b>Pickup:</b> ${formatDateTime(booking.pickupDate, booking.pickupTime)}</p>
+              <p><b>Dropoff:</b> ${formatDateTime(booking.dropoffDate, booking.dropoffTime)}</p>
               <p><b>Contact:</b> ${"9141555960" || ""}</p>
             </div>
 

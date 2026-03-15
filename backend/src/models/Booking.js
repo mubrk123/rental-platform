@@ -7,9 +7,12 @@ const bookingSchema = new mongoose.Schema(
     vehicleId: { type: String, required: true },
     bookingId: { type: String, unique: true, default: () => `BK-${Date.now()}` },
     city: String,
-   
+
     pickupDate: { type: Date},
     dropoffDate: { type: Date},
+    // Store user-selected times as strings (24h "HH:mm" or "hh:mm A")
+    pickupTime: { type: String },
+    dropoffTime: { type: String },
 
     name: { type: String },
     phoneNumber: { type: String },

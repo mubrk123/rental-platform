@@ -2,7 +2,15 @@ import React from "react";
 import { MapPin, Gauge } from "lucide-react";
 import { useLazyImage } from "../utils/useLazyImage";
 
-const VehicleCard = ({ vehicle, city, pickupDate, dropoffDate, navigate }) => {
+const VehicleCard = ({
+  vehicle,
+  city,
+  pickupDate,
+  dropoffDate,
+  pickupTime,
+  dropoffTime,
+  navigate,
+}) => {
   const { visible, ref } = useLazyImage();
   const img =
     vehicle.images?.[0] || "https://placehold.co/400x200?text=No+Image";
@@ -73,7 +81,7 @@ const VehicleCard = ({ vehicle, city, pickupDate, dropoffDate, navigate }) => {
           disabled={vehicle.availableCount === 0}
           onClick={() =>
             navigate(
-              `/booking/${vehicle._id}?city=${city}&pickupDate=${pickupDate}&dropoffDate=${dropoffDate}`,
+              `/booking/${vehicle._id}?city=${city}&pickupDate=${pickupDate}&dropoffDate=${dropoffDate}&pickupTime=${pickupTime}&dropoffTime=${dropoffTime}`,
               {
                 state: {
                   vehicleName: vehicle.modelName,

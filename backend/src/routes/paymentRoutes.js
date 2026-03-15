@@ -84,6 +84,8 @@ router.post(
         city,
         pickupDate,
         dropoffDate,
+        pickupTime,
+        dropoffTime,
         helmetCount,
       } = req.body;
 
@@ -124,6 +126,8 @@ router.post(
         city,
         pickupDate,
         dropoffDate,
+        pickupTime,
+        dropoffTime,
         helmetCount: Number(helmetCount) || 1,
         aadhaarDocument: aadhaarPath,
         licenseDocument: licensePath,
@@ -146,8 +150,8 @@ router.post(
       /* ---------------- USER WHATSAPP ---------------- */
       await sendUserWhatsAppTemplate(phoneNumber, "BOOKING_CONFIRMATION", {
         1: name,
-        2: pickupDate,
-        3: dropoffDate,
+        2: pickupTime ? `${pickupDate} ${pickupTime}` : pickupDate,
+        3: dropoffTime ? `${dropoffDate} ${dropoffTime}` : dropoffDate,
         4: city,
         5: `${locData.address || "Pickup Counter"} ${locData.link || ""}`,
         6: locData.handlerPhone || process.env.DEFAULT_HANDLER_NUMBER,
@@ -161,8 +165,8 @@ Location: ${city}
 Customer: ${name}
 Phone: ${phoneNumber}
 Vehicle: ${vehicle?.brand || ""} ${vehicle?.modelName || ""}
-Pickup: ${pickupDate}
-Dropoff: ${dropoffDate}
+Pickup: ${pickupTime ? `${pickupDate} ${pickupTime}` : pickupDate}
+Dropoff: ${dropoffTime ? `${dropoffDate} ${dropoffTime}` : dropoffDate}
 Handler: ${locData.handlerPhone || "N/A"}`
       );
 
@@ -174,8 +178,8 @@ Handler: ${locData.handlerPhone || "N/A"}`
 Customer: ${name}
 Phone: ${phoneNumber}
 Vehicle: ${vehicle?.brand || ""} ${vehicle?.modelName || ""}
-Pickup: ${pickupDate}
-Dropoff: ${dropoffDate}`
+Pickup: ${pickupTime ? `${pickupDate} ${pickupTime}` : pickupDate}
+Dropoff: ${dropoffTime ? `${dropoffDate} ${dropoffTime}` : dropoffDate}`
         );
       }
 
@@ -187,6 +191,8 @@ Dropoff: ${dropoffDate}`
           city,
           pickupDate,
           dropoffDate,
+          pickupTime,
+          dropoffTime,
           phoneNumber,
         });
       }
