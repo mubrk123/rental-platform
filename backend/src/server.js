@@ -78,9 +78,11 @@ const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/rentalDB";
 
 mongoose
   .connect(MONGO_URI)
-  .then(() => {
+  .then(async () => {
     console.log("✅ MongoDB connected successfully");
     console.log("🧩 Connected to DB:", mongoose.connection.name);
+    await seedLocations();
+    await seedAdminCredentials();
   })
   .catch((err) => {
     console.error("❌ MongoDB connection error:", err.message);
@@ -96,6 +98,9 @@ import paymentRoutes from "./routes/paymentRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import otpRoutes from "./routes/otpRoutes.js";
 import saleBikeRoutes from "./routes/saleBikeRoutes.js";
+import locationRoutes from "./routes/locationRoutes.js";
+import { seedLocations } from "./utils/seedLocations.js";
+import { seedAdminCredentials } from "./utils/seedAdminCredentials.js";
 
 app.use("/api/vehicles", vehicleRoutes);
 app.use("/api/bookings", bookingRoutes);
@@ -103,6 +108,7 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/otp", otpRoutes);
 app.use("/api/sale-bikes", saleBikeRoutes);
+app.use("/api/locations", locationRoutes);
 
 // ---------------------------------------------
 //  Health Check Endpoint

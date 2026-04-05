@@ -1,23 +1,7 @@
-# Node modules
 node_modules/
-**/node_modules/
-
-# Env files
+dist/
 .env
-.env.*
-!env.example
-
-# Build outputs
-frontend/dist/
-backend/uploads/
-
-# Logs
-logs/
-*.log
-
-# System
+.env.production
 .DS_Store
-
-# IDE
-.vscode/
-.idea/
+*.log
+uploads/

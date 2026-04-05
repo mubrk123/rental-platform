@@ -127,11 +127,11 @@ const BookingSuccess = () => {
           </p>
           <p className="flex items-center">
             <KeyRound className="w-5 h-5 text-sky-600 mr-2" />
-            <strong>Pickup:</strong>&nbsp;{booking.pickupDate} {booking.pickupTime}
+            <strong>Pickup:</strong>&nbsp;{booking.pickupDate}
           </p>
           <p className="flex items-center">
             <CornerDownRight className="w-5 h-5 text-sky-600 mr-2" />
-            <strong>Dropoff:</strong>&nbsp;{booking.dropoffDate} {booking.dropoffTime}
+            <strong>Dropoff:</strong>&nbsp;{booking.dropoffDate}
           </p>
         </div>
 

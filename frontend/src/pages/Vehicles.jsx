@@ -16,9 +16,8 @@ const Vehicles = () => {
   const city = params.get("city") || "Bangalore";
   const pickupDate = params.get("pickupDate") || "27 Oct 2025";
   const dropoffDate = params.get("dropoffDate") || "29 Oct 2025";
-  // use 24-hour times to stay compatible with backend
-  const pickupTime = params.get("pickupTime") || "09:00";
-  const dropoffTime = params.get("dropoffTime") || "10:00";
+  const pickupTime = params.get("pickupTime") || "9:00 AM";
+  const dropoffTime = params.get("dropoffTime") || "10:00 AM";
 
   const fetchVehicles = async () => {
     setLoading(true);
@@ -178,8 +177,6 @@ const Vehicles = () => {
                   city={city}
                   pickupDate={pickupDate}
                   dropoffDate={dropoffDate}
-                  pickupTime={pickupTime}
-                  dropoffTime={dropoffTime}
                   navigate={navigate}
                 />
               ))}

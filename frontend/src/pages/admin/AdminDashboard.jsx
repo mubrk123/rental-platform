@@ -21,6 +21,7 @@ import {
   List,
   ChevronLeft,
   ChevronRight,
+  GitBranch,
 } from "lucide-react";
 import { jwtDecode } from "jwt-decode"; // ✅ Correct import for jwt-decode v4+
 
@@ -32,6 +33,7 @@ const UploadVehicle = lazy(() => import("./UploadVehicle"));
 const UploadSaleBike = lazy(() => import("./UploadSaleBike"));
 const SaleBikesList = lazy(() => import("./SaleBikesList"));
 const SettingsPage = lazy(() => import("./Settings"));
+const BranchManager = lazy(() => import("./BranchManager"));
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -98,6 +100,8 @@ const AdminDashboard = () => {
         return <UploadSaleBike />;
       case "sale-list":
         return <SaleBikesList />;
+      case "branches":
+        return <BranchManager />;
       case "settings":
         return <SettingsPage />;
       default:
@@ -120,6 +124,7 @@ const AdminDashboard = () => {
         ["Upload Vehicle", Upload, "upload"],
         ["Upload Sale Bike", Upload, "upload-sale"],
         ["Sale Bike List", List, "sale-list"],
+        ["Branches", GitBranch, "branches"],
         ["Settings", Settings, "settings"]
       );
     }

@@ -9,15 +9,6 @@ import SaleBikeCard from "../../components/SaleBikeCard";
 /* -------------------------------------------------------------------------- */
 /* 📍 Constants                                                               */
 /* -------------------------------------------------------------------------- */
-const LOCATIONS = [
-  "All Locations",
-  "Lalbagh",
-  "Nagavara",
-  "Residency Road",
-  "Majestic (Gandhi Nagar)",
-];
-
-
 const TIME_SLOTS = [
   "08:00", "08:30",
   "09:00", "09:30",
@@ -107,6 +98,13 @@ const SearchWidget = () => {
   const [dropoffTime, setDropoffTime] = useState("");
   const [pickupLocation, setPickupLocation] = useState("");
   const [error, setError] = useState("");
+  const [locations, setLocations] = useState([]);
+
+  useEffect(() => {
+    axios.get(`${import.meta.env.VITE_API_URL}/locations/active`)
+      .then((res) => setLocations(res.data.locations || []))
+      .catch(() => setLocations([]));
+  }, []);
 
   const validate = () => {
     if (!pickupLocation) return "Please select a pickup location.";
@@ -180,8 +178,8 @@ const SearchWidget = () => {
             className="w-full p-3 rounded-md bg-gray-100"
           >
             <option value="">Pickup Location</option>
-            {LOCATIONS.map((loc) => (
-              <option key={loc}>{loc}</option>
+            {locations.map((loc) => (
+              <option key={loc._id} value={loc.name}>{loc.name}</option>
             ))}
           </select>
 
@@ -279,8 +277,8 @@ const SearchWidget = () => {
             className="bg-transparent border border-white/60 rounded-md px-3 py-2 text-sm"
           >
             <option value="">Pickup Location</option>
-            {LOCATIONS.map((loc) => (
-              <option key={loc}>{loc}</option>
+            {locations.map((loc) => (
+              <option key={loc._id} value={loc.name}>{loc.name}</option>
             ))}
           </select>
 

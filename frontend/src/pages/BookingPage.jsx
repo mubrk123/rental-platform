@@ -270,8 +270,6 @@ const BookingPage = () => {
     fd.append("city", city);
     fd.append("pickupDate", pickupDate);
     fd.append("dropoffDate", dropoffDate);
-    fd.append("pickupTime", pickupTime);
-    fd.append("dropoffTime", dropoffTime);
     fd.append("helmetCount", helmetCount);
     return fd;
   };
@@ -336,9 +334,7 @@ const BookingPage = () => {
                     vehicleId: id,
                     city,
                     pickupDate,
-                    pickupTime,
                     dropoffDate,
-                    dropoffTime,
                     name: form.name,
                     phoneNumber: form.phoneNumber,
                     email: form.email,
