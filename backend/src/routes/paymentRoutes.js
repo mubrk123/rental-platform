@@ -10,10 +10,11 @@ import { sendEmail } from "../utils/sendEmail.js";
 import { upload, uploadToCloudinary } from "../utils/upload.js";
 import Location from "../models/Location.js";
 
-// Format date as "10 Apr 2026, 10:00 AM"
-const formatDateTime = (dateStr) => {
+// Format date+time as "10 Apr 2026, 10:00 AM"
+const formatDateTime = (dateStr, timeStr) => {
   if (!dateStr) return "N/A";
-  const d = new Date(dateStr);
+  const combined = timeStr ? `${dateStr}T${timeStr}:00` : `${dateStr}T00:00:00`;
+  const d = new Date(combined);
   return d.toLocaleString("en-IN", {
     day: "2-digit",
     month: "short",
@@ -21,79 +22,42 @@ const formatDateTime = (dateStr) => {
     hour: "2-digit",
     minute: "2-digit",
     hour12: true,
-  }).replace(",", ",");
+  });
 };
 
 const router = express.Router();
 
 /* ======================================================================
-    🟦 CREATE RAZORPAY ORDER (NOW WITH HELMET CHARGES)
+    🟦 CREATE RAZORPAY ORDER
 ====================================================================== */
 router.post("/create-order", async (req, res) => {
   try {
-    const { pricePerDay, pickupDate, dropoffDate, helmetCount } = req.body;
+    const { pricePerDay, pickupDate, pickupTime, dropoffDate, dropoffTime, helmetCount } = req.body;
 
-    // ----------------------------
-    // 1. Calculate number of days
-    // ----------------------------
-    const start = new Date(pickupDate);
-    const end = new Date(dropoffDate);
-    const days = Math.max(
-      1,
-      Math.ceil((end - start) / (1000 * 60 * 60 * 24))
-    );
+    const start = new Date(`${pickupDate}T${pickupTime || "00:00"}:00`);
+    const end = new Date(`${dropoffDate}T${dropoffTime || "00:00"}:00`);
+    const minutes = Math.max(1, Math.ceil((end - start) / 60000));
+    const days = Math.ceil(minutes / 1440) || 1;
 
-    // ----------------------------
-    // 2. Base rental amount
-    // ----------------------------
     const baseAmount = days * Number(pricePerDay);
     const taxes = Math.round(baseAmount * 0.18);
     const handling = 10;
-
-    // ----------------------------
-    // ⭐ 3. Helmet charges
-    // ----------------------------
     const helmetCharge = helmetCount == 2 ? 50 : 0;
     const helmetGST = helmetCount == 2 ? Math.round(50 * 0.18) : 0;
+    const totalAmount = baseAmount + taxes + handling + helmetCharge + helmetGST;
 
-    // ----------------------------
-    // 4. Final amount (to Razorpay)
-    // ----------------------------
-    const totalAmount =
-      baseAmount + taxes + handling + helmetCharge + helmetGST;
+    console.log("🔵 Calculated Amount:", { days, baseAmount, taxes, handling, helmetCharge, helmetGST, totalAmount });
 
-    console.log("🔵 Calculated Amount:", {
-      baseAmount,
-      taxes,
-      handling,
-      helmetCharge,
-      helmetGST,
-      totalAmount,
-    });
-
-    // ----------------------------
-    // 5. Create Razorpay order
-    // ----------------------------
     const razorpay = new Razorpay({
       key_id: process.env.RAZORPAY_KEY_ID,
       key_secret: process.env.RAZORPAY_KEY_SECRET,
     });
 
     const order = await razorpay.orders.create({
-      amount: Math.round(totalAmount * 100), // paise
+      amount: Math.round(totalAmount * 100),
       currency: "INR",
       receipt: `receipt_${Date.now()}`,
-      notes: {
-        days,
-        pickupDate,
-        dropoffDate,
-        baseAmount,
-        taxes,
-        handling,
-        helmetCount,
-        helmetCharge,
-        helmetGST,
-      },
+      notes: { days, pickupDate, pickupTime, dropoffDate, dropoffTime, baseAmount, taxes, handling, helmetCount, helmetCharge, helmetGST },
     });
 
     return res.json({ success: true, order });
@@ -104,7 +68,7 @@ router.post("/create-order", async (req, res) => {
 });
 
 /* ======================================================================
-    🟩 VERIFY PAYMENT + CREATE BOOKING (NOW SAVES HELMET COUNT)
+    🟩 VERIFY PAYMENT + CREATE BOOKING
 ====================================================================== */
 router.post(
   "/verify-payment",
@@ -125,36 +89,26 @@ router.post(
         phoneNumber,
         city,
         pickupDate,
+        pickupTime,
         dropoffDate,
-        helmetCount, // ⭐ added
+        dropoffTime,
+        helmetCount,
       } = req.body;
 
-      /* ------------------------------------
-            SIGNATURE VERIFICATION
-      ------------------------------------ */
+      /* SIGNATURE VERIFICATION */
       const expected = crypto
         .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
         .update(razorpay_order_id + "|" + razorpay_payment_id)
         .digest("hex");
 
       if (expected !== razorpay_signature)
-        return res.status(400).json({
-          success: false,
-          message: "Invalid signature",
-        });
+        return res.status(400).json({ success: false, message: "Invalid signature" });
 
-      /* ------------------------------------
-            PREVENT DUPLICATE BOOKINGS
-      ------------------------------------ */
-      const existing = await Booking.findOne({
-        paymentId: razorpay_payment_id,
-      });
-
+      /* PREVENT DUPLICATE BOOKINGS */
+      const existing = await Booking.findOne({ paymentId: razorpay_payment_id });
       if (existing) return res.json({ success: true, booking: existing });
 
-      /* ------------------------------------
-            UPLOAD DOCUMENTS TO CLOUDINARY
-      ------------------------------------ */
+      /* UPLOAD DOCUMENTS TO CLOUDINARY */
       const aadhaarPath = req.files?.aadhaarDocument
         ? await uploadToCloudinary(req.files.aadhaarDocument[0], "documents")
         : null;
@@ -163,9 +117,7 @@ router.post(
         ? await uploadToCloudinary(req.files.licenseDocument[0], "documents")
         : null;
 
-      /* ------------------------------------
-           FETCH PAID AMOUNT FROM RAZORPAY ORDER
-      ------------------------------------ */
+      /* FETCH PAID AMOUNT FROM RAZORPAY */
       let paidAmount = 0;
       try {
         const razorpay = new Razorpay({
@@ -173,14 +125,12 @@ router.post(
           key_secret: process.env.RAZORPAY_KEY_SECRET,
         });
         const order = await razorpay.orders.fetch(razorpay_order_id);
-        paidAmount = Math.round((order.amount || 0) / 100); // convert paise to rupees
+        paidAmount = Math.round((order.amount || 0) / 100);
       } catch (err) {
         console.warn("⚠️ Could not fetch order amount:", err.message);
       }
 
-      /* ------------------------------------
-           CREATE BOOKING IN DATABASE
-      ------------------------------------ */
+      /* CREATE BOOKING */
       const newBooking = new Booking({
         userId,
         vehicleId,
@@ -189,7 +139,9 @@ router.post(
         phoneNumber,
         city,
         pickupDate,
+        pickupTime: pickupTime || "00:00",
         dropoffDate,
+        dropoffTime: dropoffTime || "00:00",
         helmetCount: Number(helmetCount) || 1,
         aadhaarDocument: aadhaarPath,
         licenseDocument: licensePath,
@@ -201,114 +153,92 @@ router.post(
 
       await newBooking.save();
 
-      /* ------------------------------------
-           UPDATE VEHICLE STOCK
-      ------------------------------------ */
+      /* UPDATE VEHICLE STOCK */
       const vehicle = await Vehicle.findById(vehicleId);
       if (vehicle) {
         vehicle.bookedQuantity = Number(vehicle.bookedQuantity || 0) + 1;
         await vehicle.save();
       }
 
-      /* ------------------------------------
-           SEND WHATSAPP CONFIRMATION TO USER
-      ------------------------------------ */
-      try {
-        const locData = await Location.findOne({ name: { $regex: new RegExp(`^${city}$`, "i") } }).lean();
+      /* SEND ALL NOTIFICATIONS IN PARALLEL */
+      const locData = await Location.findOne({
+        name: { $regex: new RegExp(`^${city}`, "i") },
+      }).lean();
 
-        await sendWhatsAppTemplate(phoneNumber, "BOOKING_CONFIRMATION", {
+      const vehicleName = vehicle ? `${vehicle.brand} ${vehicle.modelName}` : "N/A";
+      const pickupFormatted = formatDateTime(pickupDate, pickupTime);
+      const dropoffFormatted = formatDateTime(dropoffDate, dropoffTime);
+
+      await Promise.allSettled([
+        // WhatsApp to user
+        sendWhatsAppTemplate(phoneNumber, "BOOKING_CONFIRMATION", {
           1: name,
-          2: pickupDate,
-          3: dropoffDate,
+          2: pickupFormatted,
+          3: dropoffFormatted,
           4: city,
           5: `${locData?.address || "Pickup Counter"} ${locData?.mapsLink || ""}`,
           6: locData?.handlerPhone || process.env.DEFAULT_HANDLER_NUMBER,
           7: vehicle?.modelName || "Bike",
-        });
-      } catch (err) {
-        console.log("⚠️ WhatsApp send error:", err.message);
-      }
+        }).catch((err) => console.warn("⚠️ WhatsApp failed:", err.message)),
 
-      /* ------------------------------------
-            EMAIL CONFIRMATION
-      ------------------------------------ */
-      if (email) {
-        try {
-          await sendEmail(email, {
-            name,
-            bookingId: newBooking._id,
-            city,
-            pickupDate,
-            dropoffDate,
-            phoneNumber,
-            helmetCount,
-          });
-        } catch (err) {
-          console.log("⚠️ Email error:", err.message);
-        }
-      }
+        // Email to user
+        email
+          ? sendEmail(email, {
+              name,
+              bookingId: newBooking._id,
+              city,
+              pickupDate,
+              pickupTime,
+              dropoffDate,
+              dropoffTime,
+              phoneNumber,
+              helmetCount,
+            }).catch((err) => console.warn("⚠️ Email failed:", err.message))
+          : Promise.resolve(),
 
-      /* ------------------------------------
-            SMS TO MAIN ADMIN
-      ------------------------------------ */
-      try {
-        const locData = await Location.findOne({ name: { $regex: new RegExp(`^${city}$`, "i") } }).lean();
-        const vehicleName = vehicle ? `${vehicle.brand} ${vehicle.modelName}` : "N/A";
-        const adminMsg = [
-          `NEW BOOKING - NewBikeWorld`,
-          `----------------------------`,
-          `Name   : ${name}`,
-          `Phone  : ${phoneNumber}`,
-          `Vehicle: ${vehicleName}`,
-          `Branch : ${locData?.name || city}`,
-          `Handler: ${locData?.handlerPhone || "N/A"}`,
-          `----------------------------`,
-          `Pickup : ${formatDateTime(pickupDate)}`,
-          `Return : ${formatDateTime(dropoffDate)}`,
-          `Amount : Rs.${paidAmount} (PAID)`,
-        ].join("\n");
-
-        await sendSMS(process.env.MAIN_ADMIN_NUMBER, adminMsg);
-        console.log("✅ Admin SMS sent");
-      } catch (err) {
-        console.warn("⚠️ Admin SMS failed:", err.message);
-      }
-
-      /* ------------------------------------
-            SMS TO BRANCH HANDLER
-      ------------------------------------ */
-      try {
-        const locData = await Location.findOne({ name: { $regex: new RegExp(`^${city}$`, "i") } }).lean();
-        if (locData?.handlerPhone) {
-          const vehicleName = vehicle ? `${vehicle.brand} ${vehicle.modelName}` : "N/A";
-          const handlerMsg = [
-            `NEW BOOKING - Your Branch`,
+        // SMS to main admin
+        sendSMS(
+          process.env.MAIN_ADMIN_NUMBER,
+          [
+            `NEW BOOKING - NewBikeWorld`,
             `----------------------------`,
             `Name   : ${name}`,
             `Phone  : ${phoneNumber}`,
             `Vehicle: ${vehicleName}`,
+            `Branch : ${locData?.name || city}`,
+            `Handler: ${locData?.handlerPhone || "N/A"}`,
             `----------------------------`,
-            `Pickup : ${formatDateTime(pickupDate)}`,
-            `Return : ${formatDateTime(dropoffDate)}`,
+            `Pickup : ${pickupFormatted}`,
+            `Return : ${dropoffFormatted}`,
             `Amount : Rs.${paidAmount} (PAID)`,
-          ].join("\n");
+          ].join("\n")
+        ).catch((err) => console.warn("⚠️ Admin SMS failed:", err.message)),
 
-          await sendSMS(locData.handlerPhone, handlerMsg);
-          console.log(`✅ Handler SMS sent to ${locData.handlerPhone}`);
-        } else {
-          console.warn(`⚠️ No handler found for city: ${city}`);
-        }
-      } catch (err) {
-        console.warn("⚠️ Handler SMS failed:", err.message);
-      }
+        // SMS to branch handler
+        locData?.handlerPhone
+          ? sendSMS(
+              locData.handlerPhone,
+              [
+                `NEW BOOKING - Your Branch`,
+                `----------------------------`,
+                `Name   : ${name}`,
+                `Phone  : ${phoneNumber}`,
+                `Vehicle: ${vehicleName}`,
+                `----------------------------`,
+                `Pickup : ${pickupFormatted}`,
+                `Return : ${dropoffFormatted}`,
+                `Amount : Rs.${paidAmount} (PAID)`,
+              ].join("\n")
+            ).catch((err) => console.warn("⚠️ Handler SMS failed:", err.message))
+          : Promise.resolve(),
+      ]);
+
+      console.log("✅ All notifications dispatched");
 
       res.json({ success: true, booking: newBooking });
     } catch (err) {
       console.error("❌ verify-payment error:", err);
-      res.status(500).json({
-        success: false,
-        message: "Payment verification failed",
-      });
+      res.status(500).json({ success: false, message: "Payment verification failed" });
     }
   }
 );

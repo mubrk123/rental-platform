@@ -177,6 +177,8 @@ const Vehicles = () => {
                   city={city}
                   pickupDate={pickupDate}
                   dropoffDate={dropoffDate}
+                  pickupTime={pickupTime}
+                  dropoffTime={dropoffTime}
                   navigate={navigate}
                 />
               ))}

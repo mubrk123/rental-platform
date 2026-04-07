@@ -99,11 +99,13 @@ const SearchWidget = () => {
   const [pickupLocation, setPickupLocation] = useState("");
   const [error, setError] = useState("");
   const [locations, setLocations] = useState([]);
+  const [locationsLoading, setLocationsLoading] = useState(true);
 
   useEffect(() => {
     axios.get(`${import.meta.env.VITE_API_URL}/locations/active`)
       .then((res) => setLocations(res.data.locations || []))
-      .catch(() => setLocations([]));
+      .catch(() => setLocations([]))
+      .finally(() => setLocationsLoading(false));
   }, []);
 
   const validate = () => {
@@ -176,8 +178,9 @@ const SearchWidget = () => {
             value={pickupLocation}
             onChange={(e) => setPickupLocation(e.target.value)}
             className="w-full p-3 rounded-md bg-gray-100"
+            disabled={locationsLoading}
           >
-            <option value="">Pickup Location</option>
+            <option value="">{locationsLoading ? "Loading locations..." : "Pickup Location"}</option>
             {locations.map((loc) => (
               <option key={loc._id} value={loc.name}>{loc.name}</option>
             ))}
@@ -275,8 +278,9 @@ const SearchWidget = () => {
             value={pickupLocation}
             onChange={(e) => setPickupLocation(e.target.value)}
             className="bg-transparent border border-white/60 rounded-md px-3 py-2 text-sm"
+            disabled={locationsLoading}
           >
-            <option value="">Pickup Location</option>
+            <option value="">{locationsLoading ? "Loading locations..." : "Pickup Location"}</option>
             {locations.map((loc) => (
               <option key={loc._id} value={loc.name}>{loc.name}</option>
             ))}

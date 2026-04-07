@@ -93,48 +93,11 @@ const BookingPage = () => {
     const minutes = Math.floor(durationMs / 60000);
     const minsInDay = 1440;
 
-    const daysFull = Math.floor(minutes / minsInDay);
-    const remainder = minutes % minsInDay;
-
-    const perHour = rentPerDay / 24;
-
-    let chargedDays = daysFull;
-    let chargedHours = 0;
-    let subtotal = 0;
-    let note = "";
-
-    if (minutes <= minsInDay) {
-      subtotal = rentPerDay;
-      return {
-        chargedDays: 1,
-        chargedHours: 0,
-        subtotal,
-        taxes: Math.round(subtotal * 0.18),
-        handling: 10,
-        helmetCharge: helmetCount === 2 ? 50 : 0,
-        helmetGST: helmetCount === 2 ? Math.round(50 * 0.18) : 0,
-        total:
-          subtotal +
-          Math.round(subtotal * 0.18) +
-          10 +
-          (helmetCount === 2 ? 50 : 0) +
-          (helmetCount === 2 ? Math.round(50 * 0.18) : 0),
-        note: "Minimum 1-day price applied",
-      };
-    }
-
-    if (remainder === 0) {
-      subtotal = rentPerDay * chargedDays;
-      note = "Exact full days";
-    } else if (remainder > 720) {
-      chargedDays++;
-      subtotal = rentPerDay * chargedDays;
-      note = "Remainder > 12 hrs → 1 full extra day";
-    } else {
-      chargedHours = Math.ceil(remainder / 60);
-      subtotal = rentPerDay * chargedDays + perHour * chargedHours;
-      note = `${chargedHours} extra hrs charged`;
-    }
+    // Any partial day is charged as a full day (ceil)
+    const chargedDays = Math.ceil(minutes / minsInDay) || 1;
+    const chargedHours = 0;
+    const subtotal = rentPerDay * chargedDays;
+    const note = `${chargedDays} day(s) charged`;
 
     const taxes = Math.round(subtotal * 0.18);
     const handling = 10;
@@ -269,7 +232,9 @@ const BookingPage = () => {
     fd.append("vehicleId", id);
     fd.append("city", city);
     fd.append("pickupDate", pickupDate);
+    fd.append("pickupTime", pickupTime);
     fd.append("dropoffDate", dropoffDate);
+    fd.append("dropoffTime", dropoffTime);
     fd.append("helmetCount", helmetCount);
     return fd;
   };
@@ -288,14 +253,7 @@ const BookingPage = () => {
     try {
       const { data } = await axios.post(
         `${import.meta.env.VITE_API_URL}/payments/create-order`,
-        {
-          pickupDate,
-          dropoffDate,
-          pricePerDay: vehicle?.rentPerDay,
-          userId: form.userId,
-          vehicleId: id,
-          helmetCount, // ⭐ send to backend
-        }
+        { pickupDate, pickupTime, dropoffDate, dropoffTime, pricePerDay: vehicle?.rentPerDay, userId: form.userId, vehicleId: id, helmetCount }
       );
 
       if (!data.success) {
